@@ -53,6 +53,11 @@ use super::{
     TestFileEntity,
 };
 
+#[cfg(feature = "tracing-unstable")]
+use crate::test::spec::unified_runner::matcher::tracing_events_match;
+#[cfg(feature = "tracing-unstable")]
+use crate::test::TracingHandler;
+
 const SKIPPED_OPERATIONS: &[&str] = &[
     "bulkWrite",
     "count",
@@ -127,6 +132,13 @@ impl TestRunner {
             file_title
         ));
 
+        #[cfg(feature = "tracing-unstable")]
+        let (tracing_handler, _guard) = {
+            let handler = TracingHandler::new_from_test_file(&test_file);
+            let guard = handler.as_ref().map(|h| h.set_as_default());
+            (handler, guard)
+        };
+
         for test_case in test_file.tests {
             if let Some(skip_reason) = test_case.skip_reason {
                 log_uncaptured(format!(
@@ -187,6 +199,9 @@ impl TestRunner {
                     .await;
             }
 
+            #[cfg(feature = "tracing-unstable")]
+            let tracing_subscriber = tracing_handler.as_ref().map(|h| h.subscribe());
+
             for operation in test_case.operations {
                 self.sync_workers().await;
                 operation.execute(self, &test_case.description).await;
@@ -236,6 +251,38 @@ impl TestRunner {
                                 "event mismatch: expected = {:#?}, actual = {:#?}\nall \
                                  expected:\n{:#?}\nall actual:\n{:#?}\nmismatch detail: {}",
                                 expected, actual, expected_events, actual_events, e,
+                            );
+                        }
+                    }
+                }
+            }
+
+            #[cfg(feature = "tracing-unstable")]
+            if let Some(ref expected_messages) = test_case.expect_log_messages {
+                self.sync_workers().await;
+
+                let all_tracing_events = tracing_subscriber
+                    .expect("log messages expected, but no tracing subscriber was registered")
+                    .collect_events(Duration::from_millis(500), |_| true)
+                    .await;
+
+                for expectation in expected_messages {
+                    let client_actual_events: Vec<_> = all_tracing_events
+                        .iter()
+                        .filter(|e| e.client_id() == Some(expectation.client.clone()))
+                        .collect();
+                    let expected_events = &expectation.messages;
+
+                    log_uncaptured(format!("got events: {:#?}", client_actual_events));
+
+                    assert_eq!(client_actual_events.len(), expected_events.len());
+
+                    for (actual, expected) in client_actual_events.iter().zip(expected_events) {
+                        if let Err(e) = tracing_events_match(actual, expected) {
+                            panic!(
+                                "tracing event mismatch: expected = {:#?}, actual = {:#?}\nall \
+                                 expected:\n{:#?}\nall actual:\n{:#?}\nmismatch detail: {}",
+                                expected, actual, expected_events, client_actual_events, e,
                             );
                         }
                     }
@@ -326,6 +373,7 @@ impl TestRunner {
                                 .await;
                         }
                     }
+                }
 
                     let id = client.id.clone();
                     let observe_events = client.observe_events.clone();

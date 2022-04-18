@@ -16,6 +16,9 @@ use crate::{
     options::{ClientOptions, DriverInfo, ServerAddress, TlsOptions},
 };
 
+#[cfg(feature = "tracing-unstable")]
+use crate::trace::ConnectionTracingEventEmitter;
+
 /// Contains the options for creating a connection pool.
 #[derive(Clone, Default, Deserialize, Derivative)]
 #[derivative(Debug, PartialEq)]
@@ -43,6 +46,10 @@ pub(crate) struct ConnectionPoolOptions {
     #[derivative(Debug = "ignore", PartialEq = "ignore")]
     #[serde(skip)]
     pub(crate) cmap_event_handler: Option<Arc<dyn CmapEventHandler>>,
+
+    #[derivative(Debug = "ignore", PartialEq = "ignore")]
+    #[serde(skip)]
+    pub(crate) tracing_event_handler: Option<Arc<dyn CmapEventHandler>>,
 
     /// The compressors that the Client is willing to use in the order they are specified
     /// in the configuration.  The Client sends this list of compressors to the server.
@@ -100,6 +107,20 @@ pub(crate) struct ConnectionPoolOptions {
 
 impl ConnectionPoolOptions {
     pub(crate) fn from_client_options(options: &ClientOptions) -> Self {
+        #[cfg(test)]
+        let client_id = options
+            .test_options
+            .as_ref()
+            .and_then(|opts| opts.client_id.clone());
+        #[cfg(not(test))]
+        let client_id = None;
+
+        #[cfg(feature = "tracing-unstable")]
+        let tracing_handler: Option<Arc<dyn CmapEventHandler>> =
+            Some(Arc::new(ConnectionTracingEventEmitter::new(client_id)));
+        #[cfg(not(feature = "tracing-unstable"))]
+        let tracing_handler = None;
+
         Self {
             app_name: options.app_name.clone(),
             connect_timeout: options.connect_timeout,
@@ -111,6 +132,7 @@ impl ConnectionPoolOptions {
             tls_options: options.tls_options(),
             credential: options.credential.clone(),
             cmap_event_handler: options.cmap_event_handler.clone(),
+            tracing_event_handler: tracing_handler,
             compressors: options.compressors.clone(),
             #[cfg(test)]
             background_thread_interval: None,

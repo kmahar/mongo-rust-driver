@@ -1,11 +1,14 @@
 //! Contains the events and functionality for monitoring behavior of the connection pooling of a
 //! `Client`.
 
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use serde::{Deserialize, Serialize};
 
 use crate::{bson::oid::ObjectId, bson_util, options::ServerAddress};
+
+#[cfg(feature = "tracing-unstable")]
+use crate::trace::{trace_or_log_enabled, TracingOrLogLevel, CONNECTION_TRACING_EVENT_TARGET};
 
 /// We implement `Deserialize` for all of the event types so that we can more easily parse the CMAP
 /// spec tests. However, we have no need to parse the address field from the JSON files (if it's
@@ -233,6 +236,64 @@ pub struct ConnectionCheckedInEvent {
     /// to identify other events related to this connection.
     #[serde(default = "default_connection_id")]
     pub connection_id: u32,
+}
+
+pub(crate) enum CmapEvent {
+    PoolCreated(PoolCreatedEvent),
+    PoolReady(PoolReadyEvent),
+    PoolCleared(PoolClearedEvent),
+    PoolClosed(PoolClosedEvent),
+    ConnectionCreated(ConnectionCreatedEvent),
+    ConnectionReady(ConnectionReadyEvent),
+    ConnectionClosed(ConnectionClosedEvent),
+    ConnectionCheckoutStarted(ConnectionCheckoutStartedEvent),
+    ConnectionCheckoutFailed(ConnectionCheckoutFailedEvent),
+    ConnectionCheckedOut(ConnectionCheckedOutEvent),
+    ConnectionCheckedIn(ConnectionCheckedInEvent),
+}
+
+fn handle_cmap_event(handler: &dyn CmapEventHandler, event: CmapEvent) {
+    match event {
+        CmapEvent::PoolCreated(event) => handler.handle_pool_created_event(event),
+        CmapEvent::PoolReady(event) => handler.handle_pool_ready_event(event),
+        CmapEvent::PoolCleared(event) => handler.handle_pool_cleared_event(event),
+        CmapEvent::PoolClosed(event) => handler.handle_pool_closed_event(event),
+        CmapEvent::ConnectionCreated(event) => handler.handle_connection_created_event(event),
+        CmapEvent::ConnectionReady(event) => handler.handle_connection_ready_event(event),
+        CmapEvent::ConnectionClosed(event) => handler.handle_connection_closed_event(event),
+        CmapEvent::ConnectionCheckoutStarted(event) => {
+            handler.handle_connection_checkout_started_event(event)
+        }
+        CmapEvent::ConnectionCheckoutFailed(event) => {
+            handler.handle_connection_checkout_failed_event(event)
+        }
+        CmapEvent::ConnectionCheckedOut(event) => {
+            handler.handle_connection_checked_out_event(event)
+        }
+        CmapEvent::ConnectionCheckedIn(event) => handler.handle_connection_checked_in_event(event),
+    }
+}
+
+pub(crate) fn emit_cmap_event(
+    user_handler: Option<&Arc<dyn CmapEventHandler>>,
+    tracing_handler: Option<&Arc<dyn CmapEventHandler>>,
+    generate_event: impl Fn() -> CmapEvent,
+) {
+    if let Some(handler) = user_handler {
+        let event = generate_event();
+        handle_cmap_event(handler.as_ref(), event);
+    }
+
+    #[cfg(feature = "tracing-unstable")]
+    if let Some(handler) = tracing_handler {
+        if trace_or_log_enabled!(
+            target: CONNECTION_TRACING_EVENT_TARGET,
+            TracingOrLogLevel::Debug
+        ) {
+            let event = generate_event();
+            handle_cmap_event(handler.as_ref(), event);
+        }
+    }
 }
 
 /// The default connection ID to use for deserialization of events from test files.

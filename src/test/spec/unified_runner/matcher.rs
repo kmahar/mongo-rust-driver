@@ -7,13 +7,17 @@ use crate::{
     test::{CmapEvent, CommandEvent, Event, SdamEvent},
 };
 
-use super::{
-    test_event::{ExpectedSdamEvent, TestServerDescription},
-    EntityMap,
-    ExpectedCmapEvent,
-    ExpectedCommandEvent,
-    ExpectedEvent,
-};
+#[cfg(feature = "tracing-unstable")]
+use super::test_file::ExpectedMessage;
+#[cfg(feature = "tracing-unstable")]
+use crate::test::util::TracingEvent;
+
+#[cfg(feature = "tracing-unstable")]
+use super::test_file::ExpectedMessage;
+#[cfg(feature = "tracing-unstable")]
+use crate::test::util::TracingEvent;
+
+use std::convert::TryInto;
 
 pub(crate) fn results_match(
     actual: Option<&Bson>,
@@ -37,6 +41,46 @@ pub(crate) fn events_match(
         (Event::Sdam(act), ExpectedEvent::Sdam(exp)) => sdam_events_match(act, exp),
         _ => expected_err(actual, expected),
     }
+}
+
+#[cfg(feature = "tracing-unstable")]
+pub fn tracing_events_match(
+    actual: &TracingEvent,
+    expected: &ExpectedMessage,
+) -> Result<(), String> {
+    if actual.target != expected.target {
+        return Err(format!(
+            "Expected and actual tracing event components do not match: expected {}, got {}",
+            expected.target, actual.target
+        ));
+    }
+    if actual.level != expected.level {
+        return Err(format!(
+            "Expected and actual tracing event levels do not match: expected {}. got {}",
+            expected.level, actual.level
+        ));
+    }
+
+    let serialized_fields = bson::to_document(&actual.fields)
+        .map_err(|e| format!("Failed to serialize tracing fields to document: {}", e))?;
+    let mut actual_fields = bson::Document::new();
+
+    use convert_case::{Case, Casing};
+
+    for (key, value) in serialized_fields.into_iter() {
+        let camel_case_key = match key == "duration_ms" {
+            true => "durationMS".to_string(),
+            false => key.to_case(Case::Camel),
+        };
+        actual_fields.insert(camel_case_key, value);
+    }
+
+    return results_match(
+        Some(&Bson::Document(actual_fields)),
+        &Bson::Document(expected.data.clone()),
+        false,
+        None,
+    );
 }
 
 fn match_opt<T: PartialEq + std::fmt::Debug>(
@@ -330,6 +374,19 @@ fn special_operator_matches(
             }
             None => panic!("Could not find entity: {}", value),
         },
+        "$$matchAsDocument" => {
+            let str = match actual {
+                Some(Bson::String(str)) => str,
+                _ => return Err(format!("expected value to be a string, got {:?}", actual)),
+            };
+            let json: serde_json::Value = serde_json::from_str(str)
+                .map_err(|e| format!("Failed to convert string to JSON: {}", e))?;
+            let doc = json
+                .try_into()
+                .map_err(|e| format!("Failed to convert JSON to BSON: {}", e))?;
+            results_match_inner(Some(&doc), value, false, false, entities)
+        }
+        "$$matchAsRoot" => results_match_inner(actual, value, false, true, entities),
         other => panic!("unknown special operator: {}", other),
     }
 }

@@ -65,7 +65,13 @@ use crate::{
     },
     runtime,
     selection_criteria::ReadPreference,
-    test::FailPoint,
+    test::{
+        spec::unified_runner::{
+            matcher::results_match,
+            test_file::TestFileEntity,
+        },
+        FailPoint,
+    },
     Collection,
     Database,
     IndexModel,
@@ -100,6 +106,10 @@ pub(crate) trait TestOperation: Debug + Send + Sync {
     /// expected value.
     fn returns_root_documents(&self) -> bool {
         false
+    }
+
+    fn as_test_file_entity(&self) -> Option<&TestFileEntity> {
+        None
     }
 }
 
@@ -324,6 +334,7 @@ impl<'de> Deserialize<'de> for Operation {
                 deserialize_op::<AssertNumberConnectionsCheckedOut>(definition.arguments)
             }
             "close" => deserialize_op::<Close>(definition.arguments),
+            "createEntity" => deserialize_op::<CreateEntity>(definition.arguments),
             "createChangeStream" => deserialize_op::<CreateChangeStream>(definition.arguments),
             "rename" => deserialize_op::<RenameCollection>(definition.arguments),
             "loop" => deserialize_op::<Loop>(definition.arguments),
@@ -2116,6 +2127,29 @@ impl TestOperation for AssertNumberConnectionsCheckedOut {
             assert_eq!(client.connections_checked_out(), self.connections);
         }
         .boxed()
+    }
+}
+
+#[derive(Debug, Deserialize)]
+#[serde(rename_all = "camelCase", deny_unknown_fields)]
+pub struct CreateEntity {
+    #[serde(flatten)]
+    pub entity: TestFileEntity,
+}
+
+impl TestOperation for CreateEntity {
+    fn execute_test_runner_operation<'a>(
+        &'a self,
+        test_runner: &'a mut TestRunner,
+    ) -> BoxFuture<'a, ()> {
+        async move {
+            test_runner.create_and_insert_entity(&self.entity).await;
+        }
+        .boxed()
+    }
+
+    fn as_test_file_entity(&self) -> Option<&TestFileEntity> {
+        Some(&self.entity)
     }
 }
 

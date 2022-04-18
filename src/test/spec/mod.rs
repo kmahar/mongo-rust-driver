@@ -15,6 +15,8 @@ mod read_write_concern;
 mod retryable_reads;
 mod retryable_writes;
 mod sessions;
+#[cfg(feature = "tracing-unstable")]
+mod trace;
 mod transactions;
 pub mod unified_runner;
 mod v2_runner;

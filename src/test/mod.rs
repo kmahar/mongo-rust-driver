@@ -36,6 +36,9 @@ pub(crate) use self::{
     },
 };
 
+#[cfg(feature = "tracing-unstable")]
+pub(crate) use self::util::TracingHandler;
+
 use async_once::AsyncOnce;
 use home::home_dir;
 use lazy_static::lazy_static;

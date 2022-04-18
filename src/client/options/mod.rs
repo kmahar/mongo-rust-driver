@@ -530,6 +530,14 @@ pub struct ClientOptions {
     #[builder(default)]
     pub tls: Option<Tls>,
 
+    /// The maximum number of bytes that the driver should include in a tracing event
+    /// or log message's extended JSON string representation of a document.
+    ///
+    /// The default value is 1000.
+    #[cfg(feature = "tracing-unstable")]
+    #[builder(default)]
+    pub tracing_max_document_length_bytes: Option<usize>,
+
     /// Specifies the default write concern for operations performed on the Client. See the
     /// WriteConcern type documentation for more details.
     #[builder(default)]
@@ -575,6 +583,10 @@ pub(crate) struct TestOptions {
 
     /// Mock response for `SrvPollingMonitor::lookup_hosts`.
     pub(crate) mock_lookup_hosts: Option<Result<LookupHosts>>,
+
+    /// Optionally stores the unified test runner entity ID for this client.
+    /// Used to include client IDs in tracing events.
+    pub(crate) client_id: Option<String>,
 }
 
 fn default_hosts() -> Vec<ServerAddress> {
@@ -1259,6 +1271,8 @@ impl ClientOptions {
             sdam_event_handler: None,
             #[cfg(test)]
             test_options: None,
+            #[cfg(feature = "tracing-unstable")]
+            tracing_max_document_length_bytes: None,
         }
     }
 

@@ -36,10 +36,13 @@ use super::run_spec_test_with_path;
 
 static MIN_SPEC_VERSION: Version = Version::new(1, 0, 0);
 static MAX_SPEC_VERSION: Version = Version::new(1, 10, 0);
+<<<<<<< HEAD
 
 fn file_level_log(message: impl AsRef<str>) {
     log_uncaptured(format!("\n------------\n{}\n", message.as_ref()));
 }
+=======
+>>>>>>> dbf9898 (logging WIP)
 
 pub(crate) async fn run_unified_format_test(path: PathBuf, test_file: TestFile) {
     run_unified_format_test_filtered(path, test_file, |_| true).await

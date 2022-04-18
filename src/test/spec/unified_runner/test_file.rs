@@ -1,4 +1,6 @@
 use std::{fmt::Write, sync::Arc, time::Duration};
+#[cfg(feature = "tracing-unstable")]
+use std::collections::HashMap;
 
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Deserializer};
@@ -22,7 +24,11 @@ use crate::{
         WriteConcern,
     },
     test::{Serverless, TestClient, DEFAULT_URI},
+
 };
+
+#[cfg(feature = "tracing-unstable")]
+use crate::trace;
 
 #[derive(Debug, Deserialize)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
@@ -54,6 +60,54 @@ where
         schema_version.push_str(".0");
     }
     Version::parse(&schema_version).map_err(|e| serde::de::Error::custom(format!("{}", e)))
+}
+
+#[cfg(feature = "tracing-unstable")]
+fn deserialize_tracing_level_map<'de, D>(
+    deserializer: D,
+) -> std::result::Result<Option<HashMap<String, tracing::Level>>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    let str_map = HashMap::<String, String>::deserialize(deserializer)?;
+    let mut level_map = HashMap::new();
+    for (key, val) in str_map.iter() {
+        let key = log_component_as_tracing_target(key);
+        let level = val
+            .parse::<tracing::Level>()
+            .map_err(|e| serde::de::Error::custom(format!("{}", e)))?;
+        level_map.insert(key, level);
+    }
+    Ok(Some(level_map))
+}
+
+#[cfg(feature = "tracing-unstable")]
+fn deserialize_tracing_target<'de, D>(deserializer: D) -> std::result::Result<String, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    String::deserialize(deserializer).and_then(|s| Ok(log_component_as_tracing_target(&s)))
+}
+
+#[cfg(feature = "tracing-unstable")]
+fn log_component_as_tracing_target(component: &String) -> String {
+    match component.as_ref() {
+        "command" => trace::COMMAND_TRACING_EVENT_TARGET.to_string(),
+        "connection" => trace::CONNECTION_TRACING_EVENT_TARGET.to_string(),
+        _ => panic!("Unknown tracing target: {}", component),
+    }
+}
+
+#[cfg(feature = "tracing-unstable")]
+fn deserialize_tracing_level<'de, D>(
+    deserializer: D,
+) -> std::result::Result<tracing::Level, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    String::deserialize(deserializer)?
+        .parse::<tracing::Level>()
+        .map_err(|e| serde::de::Error::custom(format!("{}", e)))
 }
 
 #[derive(Debug, Deserialize)]
@@ -135,14 +189,14 @@ pub(crate) enum TestFileEntity {
     Thread(Thread),
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub struct StoreEventsAsEntity {
     pub id: String,
     pub events: Vec<String>,
 }
 
-#[derive(Debug, Deserialize)]
+#[derive(Debug, Deserialize, Clone)]
 #[serde(rename_all = "camelCase", deny_unknown_fields)]
 pub(crate) struct Client {
     pub(crate) id: String,
@@ -155,6 +209,9 @@ pub(crate) struct Client {
     #[serde(default, deserialize_with = "deserialize_server_api_test_format")]
     pub(crate) server_api: Option<ServerApi>,
     pub(crate) store_events_as_entities: Option<Vec<StoreEventsAsEntity>>,
+    #[cfg(feature = "tracing-unstable")]
+    #[serde(default, deserialize_with = "deserialize_tracing_level_map")]
+    pub observe_log_messages: Option<HashMap<String, tracing::Level>>,
 }
 
 pub(crate) fn deserialize_server_api_test_format<'de, D>(
@@ -313,6 +370,8 @@ pub(crate) struct TestCase {
     pub(crate) skip_reason: Option<String>,
     pub(crate) operations: Vec<Operation>,
     pub(crate) expect_events: Option<Vec<ExpectedEvents>>,
+    #[cfg(feature = "tracing-unstable")]
+    pub(crate) expect_log_messages: Option<Vec<ExpectedMessages>>,
     pub(crate) outcome: Option<Vec<CollectionData>>,
 }
 
@@ -323,6 +382,25 @@ pub(crate) struct ExpectedEvents {
     pub(crate) events: Vec<ExpectedEvent>,
     pub(crate) event_type: Option<ExpectedEventType>,
     pub(crate) ignore_extra_events: Option<bool>,
+}
+
+#[cfg(feature = "tracing-unstable")]
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields, rename_all = "camelCase")]
+pub(crate) struct ExpectedMessages {
+    pub(crate) client: String,
+    pub(crate) messages: Vec<ExpectedMessage>,
+}
+
+#[cfg(feature = "tracing-unstable")]
+#[derive(Debug, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(crate) struct ExpectedMessage {
+    #[serde(deserialize_with = "deserialize_tracing_level")]
+    pub(crate) level: tracing::Level,
+    #[serde(rename = "component", deserialize_with = "deserialize_tracing_target")]
+    pub(crate) target: String,
+    pub(crate) data: Document,
 }
 
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Deserialize)]

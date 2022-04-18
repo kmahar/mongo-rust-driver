@@ -27,6 +27,8 @@ use crate::{
     bson::oid::ObjectId,
     error::{Error, Result},
     event::cmap::{
+        emit_cmap_event,
+        CmapEvent,
         CmapEventHandler,
         ConnectionCheckoutFailedEvent,
         ConnectionCheckoutFailedReason,
@@ -57,7 +59,9 @@ pub(crate) struct ConnectionPool {
     generation_subscriber: PoolGenerationSubscriber,
 
     #[derivative(Debug = "ignore")]
-    event_handler: Option<Arc<dyn CmapEventHandler>>,
+    user_handler: Option<Arc<dyn CmapEventHandler>>,
+    #[derivative(Debug = "ignore")]
+    tracing_handler: Option<Arc<dyn CmapEventHandler>>,
 }
 
 impl ConnectionPool {
@@ -74,23 +78,28 @@ impl ConnectionPool {
             options.clone(),
         );
 
-        let event_handler = options
+        let user_handler = options
             .as_ref()
             .and_then(|opts| opts.cmap_event_handler.clone());
 
-        if let Some(ref handler) = event_handler {
-            handler.handle_pool_created_event(PoolCreatedEvent {
+        let tracing_handler = options
+            .as_ref()
+            .and_then(|opts| opts.tracing_event_handler.clone());
+
+        emit_cmap_event(user_handler.as_ref(), tracing_handler.as_ref(), || {
+            CmapEvent::PoolCreated(PoolCreatedEvent {
                 address: address.clone(),
-                options: options.map(|o| o.to_event_options()),
-            });
-        };
+                options: options.as_ref().map(|o| o.to_event_options()),
+            })
+        });
 
         Self {
             address,
             manager,
             connection_requester,
             generation_subscriber,
-            event_handler,
+            user_handler,
+            tracing_handler,
         }
     }
 
@@ -106,29 +115,27 @@ impl ConnectionPool {
             manager,
             connection_requester,
             generation_subscriber,
-            event_handler: None,
+            user_handler: None,
+            tracing_handler: None,
         }
     }
 
-    fn emit_event<F>(&self, emit: F)
-    where
-        F: FnOnce(&Arc<dyn CmapEventHandler>),
-    {
-        if let Some(ref handler) = self.event_handler {
-            emit(handler);
-        }
+    fn emit_event(&self, generate_event: impl Fn() -> CmapEvent) {
+        emit_cmap_event(
+            self.user_handler.as_ref(),
+            self.tracing_handler.as_ref(),
+            generate_event,
+        )
     }
 
     /// Checks out a connection from the pool. This method will yield until this thread is at the
     /// front of the wait queue, and then will block again if no available connections are in the
     /// pool and the total number of connections is not less than the max pool size.
     pub(crate) async fn check_out(&self) -> Result<Connection> {
-        self.emit_event(|handler| {
-            let event = ConnectionCheckoutStartedEvent {
+        self.emit_event(|| {
+            CmapEvent::ConnectionCheckoutStarted(ConnectionCheckoutStartedEvent {
                 address: self.address.clone(),
-            };
-
-            handler.handle_connection_checkout_started_event(event);
+            })
         });
 
         let response = self.connection_requester.request().await;
@@ -143,13 +150,11 @@ impl ConnectionPool {
 
         match conn {
             Ok(ref conn) => {
-                self.emit_event(|handler| {
-                    handler.handle_connection_checked_out_event(conn.checked_out_event());
-                });
+                self.emit_event(|| CmapEvent::ConnectionCheckedOut(conn.checked_out_event()));
             }
             Err(_) => {
-                self.emit_event(|handler| {
-                    handler.handle_connection_checkout_failed_event(ConnectionCheckoutFailedEvent {
+                self.emit_event(|| {
+                    CmapEvent::ConnectionCheckoutFailed(ConnectionCheckoutFailedEvent {
                         address: self.address.clone(),
                         reason: ConnectionCheckoutFailedReason::ConnectionError,
                     })

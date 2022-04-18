@@ -2,6 +2,10 @@ mod event;
 mod failpoint;
 mod lock;
 mod matchable;
+#[cfg(feature = "tracing-unstable")]
+mod trace;
+#[cfg(feature = "tracing-unstable")]
+pub use self::trace::{TracingEvent, TracingEventValue, TracingHandler, TracingSubscriber};
 
 pub(crate) use self::{
     event::{CmapEvent, CommandEvent, Event, EventClient, EventHandler, SdamEvent},

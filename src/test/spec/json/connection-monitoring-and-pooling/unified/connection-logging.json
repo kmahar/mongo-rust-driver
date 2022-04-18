@@ -1,0 +1,177 @@
+{
+  "description": "connection-logging",
+  "schemaVersion": "1.11",
+  "tests": [
+    {
+      "description": "A successful command",
+      "operations": [
+        {
+          "name": "createEntities",
+          "object": "testRunner",
+          "arguments": {
+            "entities": [
+              {
+                "client": null,
+                "id": "client",
+                "observeLogMessages": {
+                  "connection": "debug"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "listDatabases",
+          "object": "client",
+          "arguments": {
+            "filter": {}
+          }
+        },
+        {
+          "name": "close",
+          "object": "client"
+        }
+      ],
+      "expectLogMessages": [
+        {
+          "client": "client",
+          "messages": [
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection pool created",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection pool ready",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection checkout started",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection created",
+                "driverConnectionId": {
+                  "$$exists": true
+                },
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection ready",
+                "driverConnectionId": {
+                  "$$exists": true
+                },
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection checked out",
+                "driverConnectionId": {
+                  "$$exists": true
+                },
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection checked in",
+                "driverConnectionId": {
+                  "$$exists": true
+                },
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection closed",
+                "driverConnectionId": {
+                  "$$exists": true
+                },
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                },
+                "reason": "Pool closed"
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection pool closed",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
