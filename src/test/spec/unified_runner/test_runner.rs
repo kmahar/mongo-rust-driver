@@ -111,7 +111,7 @@ impl TestRunner {
             .map(|p| p.display().to_string())
             .unwrap_or_else(|| test_file.description.clone());
 
-        if let Some(requirements) = test_file.run_on_requirements {
+        if let Some(ref requirements) = test_file.run_on_requirements {
             let mut can_run_on = false;
             for requirement in requirements {
                 if requirement.can_run_on(&self.internal_client).await {
@@ -138,6 +138,7 @@ impl TestRunner {
             let guard = handler.as_ref().map(|h| h.set_as_default());
             (handler, guard)
         };
+        log_uncaptured(format!("tracing handler: {:?}, guard: {:?}", tracing_handler, _guard));
 
         for test_case in test_file.tests {
             if let Some(skip_reason) = test_case.skip_reason {
@@ -201,6 +202,8 @@ impl TestRunner {
 
             #[cfg(feature = "tracing-unstable")]
             let tracing_subscriber = tracing_handler.as_ref().map(|h| h.subscribe());
+
+            log_uncaptured(format!("tracing subscriber: {:?}, guard: {:?}", tracing_subscriber.is_some(), _guard));
 
             for operation in test_case.operations {
                 self.sync_workers().await;
@@ -373,7 +376,6 @@ impl TestRunner {
                                 .await;
                         }
                     }
-                }
 
                     let id = client.id.clone();
                     let observe_events = client.observe_events.clone();

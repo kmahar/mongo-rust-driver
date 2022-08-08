@@ -70,7 +70,7 @@ pub struct TracingHandler {
 }
 
 impl TracingHandler {
-    pub fn new(max_verbosity_levels: HashMap<String, Level>) -> TracingHandler {
+    pub(crate) fn new(max_verbosity_levels: HashMap<String, Level>) -> TracingHandler {
         let (event_broadcaster, _) = tokio::sync::broadcast::channel(10_000);
         Self {
             max_verbosity_levels,
@@ -78,7 +78,7 @@ impl TracingHandler {
         }
     }
 
-    pub fn new_from_test_file(test_file: &TestFile) -> Option<TracingHandler> {
+    pub(crate) fn new_from_test_file(test_file: &TestFile) -> Option<TracingHandler> {
         // tests contain levels on a per-client basis, but we can only install a single
         // global handler, so we need to combine all the components and levels across
         // clients to determine what to listen for.
@@ -106,9 +106,10 @@ impl TracingHandler {
         for test in &test_file.tests {
             test.operations
                 .iter()
-                .filter(|o| o.name == "createEntity")
-                .map(|o| o.as_test_file_entity().unwrap())
-                .for_each(|e| update_merged_levels(&e));
+                .filter(|o| o.name == "createEntities")
+                .for_each(|o| o.as_test_file_entities().unwrap().iter().for_each(|e| {
+                    update_merged_levels(&e)
+                }));
         }
 
         if let Some(ref create_entities) = test_file.create_entities {

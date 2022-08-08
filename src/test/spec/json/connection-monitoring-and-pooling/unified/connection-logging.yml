@@ -10,9 +10,9 @@ tests:
         arguments:
           entities:
             - client:
-              id: &client client
-              observeLogMessages:
-                connection: debug
+                id: &client client
+                observeLogMessages:
+                  connection: debug
       - name: listDatabases
         object: *client
         arguments:

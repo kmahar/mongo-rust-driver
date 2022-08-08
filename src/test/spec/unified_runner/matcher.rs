@@ -7,15 +7,19 @@ use crate::{
     test::{CmapEvent, CommandEvent, Event, SdamEvent},
 };
 
-#[cfg(feature = "tracing-unstable")]
-use super::test_file::ExpectedMessage;
-#[cfg(feature = "tracing-unstable")]
-use crate::test::util::TracingEvent;
+use super::{
+    test_event::{ExpectedSdamEvent, TestServerDescription},
+    EntityMap,
+    ExpectedCmapEvent,
+    ExpectedCommandEvent,
+    ExpectedEvent,
+};
 
 #[cfg(feature = "tracing-unstable")]
 use super::test_file::ExpectedMessage;
 #[cfg(feature = "tracing-unstable")]
 use crate::test::util::TracingEvent;
+
 
 use std::convert::TryInto;
 
@@ -44,7 +48,7 @@ pub(crate) fn events_match(
 }
 
 #[cfg(feature = "tracing-unstable")]
-pub fn tracing_events_match(
+pub(crate) fn tracing_events_match(
     actual: &TracingEvent,
     expected: &ExpectedMessage,
 ) -> Result<(), String> {

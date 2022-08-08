@@ -15,7 +15,7 @@ use tokio::sync::RwLockWriteGuard;
 use crate::test::{log_uncaptured, run_single_test, LOCK};
 
 pub(crate) use self::{
-    entity::{ClientEntity, Entity, SessionEntity, TestCursor},
+    entity::{ClientEntity, Entity, SessionEntity, TestCursor, TestClientEntity},
     matcher::{events_match, results_match},
     operation::Operation,
     test_event::{ExpectedCmapEvent, ExpectedCommandEvent, ExpectedEvent, ObserveEvent},
@@ -35,14 +35,11 @@ pub(crate) use self::{
 use super::run_spec_test_with_path;
 
 static MIN_SPEC_VERSION: Version = Version::new(1, 0, 0);
-static MAX_SPEC_VERSION: Version = Version::new(1, 10, 0);
-<<<<<<< HEAD
+static MAX_SPEC_VERSION: Version = Version::new(1, 11, 0);
 
 fn file_level_log(message: impl AsRef<str>) {
     log_uncaptured(format!("\n------------\n{}\n", message.as_ref()));
 }
-=======
->>>>>>> dbf9898 (logging WIP)
 
 pub(crate) async fn run_unified_format_test(path: PathBuf, test_file: TestFile) {
     run_unified_format_test_filtered(path, test_file, |_| true).await

@@ -2,7 +2,7 @@ use crate::{
     bson::doc,
     client::options::ClientOptions,
     coll::options::FindOptions,
-    test::{run_spec_test, spec::run_unified_format_test, TestClient, TracingHandler, LOCK},
+    test::{run_spec_test_with_path, spec::run_unified_format_test, TestClient, TracingHandler, LOCK},
     trace::{
         truncate_on_char_boundary,
         COMMAND_TRACING_EVENT_TARGET,
@@ -188,7 +188,7 @@ async fn command_logging_truncation_mid_codepoint_reply() {
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn command_logging_unified() {
     let _guard = LOCK.run_exclusively().await;
-    run_spec_test(
+    run_spec_test_with_path(
         &["command-logging-and-monitoring", "logging", "unified"],
         run_unified_format_test,
     )
@@ -199,7 +199,7 @@ async fn command_logging_unified() {
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn connection_logging_unified() {
     let _guard = LOCK.run_exclusively().await;
-    run_spec_test(
+    run_spec_test_with_path(
         &["connection-monitoring-and-pooling", "unified"],
         run_unified_format_test,
     )

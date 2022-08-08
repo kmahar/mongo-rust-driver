@@ -11,10 +11,11 @@
           "arguments": {
             "entities": [
               {
-                "client": null,
-                "id": "client",
-                "observeLogMessages": {
-                  "connection": "debug"
+                "client": {
+                  "id": "client",
+                  "observeLogMessages": {
+                    "connection": "debug"
+                  }
                 }
               }
             ]
