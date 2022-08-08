@@ -138,7 +138,6 @@ impl TestRunner {
             let guard = handler.as_ref().map(|h| h.set_as_default());
             (handler, guard)
         };
-        log_uncaptured(format!("tracing handler: {:?}, guard: {:?}", tracing_handler, _guard));
 
         for test_case in test_file.tests {
             if let Some(skip_reason) = test_case.skip_reason {
@@ -202,8 +201,6 @@ impl TestRunner {
 
             #[cfg(feature = "tracing-unstable")]
             let tracing_subscriber = tracing_handler.as_ref().map(|h| h.subscribe());
-
-            log_uncaptured(format!("tracing subscriber: {:?}, guard: {:?}", tracing_subscriber.is_some(), _guard));
 
             for operation in test_case.operations {
                 self.sync_workers().await;
@@ -275,8 +272,6 @@ impl TestRunner {
                         .filter(|e| e.client_id() == Some(expectation.client.clone()))
                         .collect();
                     let expected_events = &expectation.messages;
-
-                    log_uncaptured(format!("got events: {:#?}", client_actual_events));
 
                     assert_eq!(client_actual_events.len(), expected_events.len());
 
@@ -430,6 +425,14 @@ impl TestRunner {
                                 options.hosts.drain(1..);
                             }
                         }
+                    }
+
+                    // if we're observing log messages, we need to set the entity ID on the test options
+                    // so that it can be emitted in tracing events and used to filter events by client for
+                    // test assertions.
+                    #[cfg(feature = "tracing-unstable")]
+                    if client.observe_log_messages.is_some() {
+                        options.test_options_mut().client_id = Some(client.id.clone());
                     }
 
                     let client = Client::with_options(options).unwrap();
