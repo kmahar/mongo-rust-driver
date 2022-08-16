@@ -37,7 +37,7 @@ pub(crate) use self::{
 };
 
 #[cfg(feature = "tracing-unstable")]
-pub(crate) use self::util::TracingHandler;
+pub(crate) use self::util::{matches_test_file_verbosity_levels, TracingEvent, TracingHandler};
 
 use async_once::AsyncOnce;
 use home::home_dir;
@@ -88,6 +88,14 @@ lazy_static! {
         std::env::var("SERVERLESS_ATLAS_USER").ok();
     pub(crate) static ref SERVERLESS_ATLAS_PASSWORD: Option<String> =
         std::env::var("SERVERLESS_ATLAS_PASSWORD").ok();
+
+    #[cfg(feature = "tracing-unstable")]
+    pub(crate) static ref DEFAULT_GLOBAL_TRACING_HANDLER: TracingHandler = {
+        let handler = TracingHandler::new();
+        tracing::subscriber::set_global_default(handler.clone())
+            .expect("setting global default tracing subscriber failed");
+        handler
+    };
 }
 
 pub(crate) fn update_options_for_testing(options: &mut ClientOptions) {

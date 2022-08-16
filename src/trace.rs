@@ -4,8 +4,10 @@ use crate::event::{
         ConnectionCheckedInEvent,
         ConnectionCheckedOutEvent,
         ConnectionCheckoutFailedEvent,
+        ConnectionCheckoutFailedReason,
         ConnectionCheckoutStartedEvent,
         ConnectionClosedEvent,
+        ConnectionClosedReason,
         ConnectionCreatedEvent,
         ConnectionReadyEvent,
         PoolClearedEvent,
@@ -208,7 +210,7 @@ impl CmapEventHandler for ConnectionTracingEventEmitter {
             server_host = event.address.host(),
             server_port = event.address.port(),
             driver_connection_id = event.connection_id,
-            reason = ?event.reason, // TODO tracing representation
+            reason = event.reason.tracing_representation().as_str(),
             "Connection closed",
         );
     }
@@ -229,7 +231,7 @@ impl CmapEventHandler for ConnectionTracingEventEmitter {
             client_id: self.client_id.as_ref(),
             server_host = event.address.host(),
             server_port = event.address.port(),
-            reason = ?event.reason, // TODO tracing representation
+            reason = event.reason.tracing_representation().as_str(),
             "Connection checkout failed",
         );
     }
@@ -267,12 +269,6 @@ impl TracingRepresentation for bson::oid::ObjectId {
     }
 }
 
-impl TracingRepresentation for u128 {
-    fn tracing_representation(self) -> String {
-        self.to_string()
-    }
-}
-
 impl TracingRepresentation for bson::Document {
     fn tracing_representation(self) -> String {
         Bson::Document(self).into_canonical_extjson().to_string()
@@ -282,6 +278,39 @@ impl TracingRepresentation for bson::Document {
 impl TracingRepresentation for crate::error::Error {
     fn tracing_representation(self) -> String {
         self.to_string()
+    }
+}
+
+impl TracingRepresentation for ConnectionClosedReason {
+    fn tracing_representation(self) -> String {
+        match self {
+            ConnectionClosedReason::Stale => {
+                "Connection became stale because the pool was cleared".to_string()
+            }
+            ConnectionClosedReason::Idle => "Connection has been available but unused for longer \
+                                             than the configured max idle time"
+                .to_string(),
+            ConnectionClosedReason::Error => {
+                "An error occurred while using the connection".to_string()
+            }
+            ConnectionClosedReason::Dropped => {
+                "Connection was dropped during an operation".to_string()
+            }
+            ConnectionClosedReason::PoolClosed => "Connection pool was closed".to_string(),
+        }
+    }
+}
+
+impl TracingRepresentation for ConnectionCheckoutFailedReason {
+    fn tracing_representation(self) -> String {
+        match self {
+            ConnectionCheckoutFailedReason::Timeout => {
+                "Wait queue timeout elapsed without a connection becoming available".to_string()
+            }
+            ConnectionCheckoutFailedReason::ConnectionError => {
+                "An error occurred while trying to establish a connection".to_string()
+            }
+        }
     }
 }
 

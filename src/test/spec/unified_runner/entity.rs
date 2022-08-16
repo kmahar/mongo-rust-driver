@@ -48,8 +48,15 @@ pub(crate) enum Entity {
 }
 
 #[derive(Clone, Debug)]
+pub(crate) enum TestClientEntity {
+    Client(Client),
+    /// Placeholder for when a client has been dropped due to a `close` operation.
+    Closed,
+}
+
+#[derive(Clone, Debug)]
 pub(crate) struct ClientEntity {
-    client: Client,
+    pub(crate) client: TestClientEntity,
     handler: Arc<EventHandler>,
     pub(crate) observer: Arc<Mutex<EventObserver>>,
     observe_events: Option<Vec<ObserveEvent>>,
@@ -124,7 +131,7 @@ impl ClientEntity {
     ) -> Self {
         let observer = EventObserver::new(handler.broadcaster().subscribe());
         Self {
-            client,
+            client: TestClientEntity::Client(client),
             handler,
             observer: Arc::new(Mutex::new(observer)),
             observe_events,
@@ -199,7 +206,10 @@ impl ClientEntity {
 
     /// Synchronize all connection pool worker threads.
     pub(crate) async fn sync_workers(&self) {
-        self.client.sync_workers().await;
+        match &self.client {
+            TestClientEntity::Client(c) => c.sync_workers().await,
+            TestClientEntity::Closed => {}
+        }
     }
 }
 
@@ -260,7 +270,10 @@ impl Deref for ClientEntity {
     type Target = Client;
 
     fn deref(&self) -> &Self::Target {
-        &self.client
+        match &self.client {
+            TestClientEntity::Client(c) => c,
+            TestClientEntity::Closed => panic!("Cannot dereference a closed client entity"),
+        }
     }
 }
 
@@ -334,12 +347,12 @@ impl Entity {
         }
     }
 
-    pub(crate) fn as_mut_cursor(&mut self) -> &mut TestCursor {
-        match self {
-            Self::Cursor(cursor) => cursor,
-            _ => panic!("Expected cursor, got {:?}", &self),
-        }
-    }
+    // pub(crate) fn as_mut_cursor(&mut self) -> &mut TestCursor {
+    //     match self {
+    //         Self::Cursor(cursor) => cursor,
+    //         _ => panic!("Expected cursor, got {:?}", &self),
+    //     }
+    // }
 
     pub(crate) fn as_thread(&self) -> &ThreadEntity {
         match self {

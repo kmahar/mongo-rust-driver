@@ -5,7 +5,7 @@ mod matchable;
 #[cfg(feature = "tracing-unstable")]
 mod trace;
 #[cfg(feature = "tracing-unstable")]
-pub use self::trace::{TracingEvent, TracingEventValue, TracingHandler, TracingSubscriber};
+pub(crate) use self::trace::{matches_test_file_verbosity_levels, TracingEvent, TracingHandler};
 
 pub(crate) use self::{
     event::{CmapEvent, CommandEvent, Event, EventClient, EventHandler, SdamEvent},

@@ -101,7 +101,10 @@ pub(crate) struct Connection {
     pinned_sender: Option<mpsc::Sender<Connection>>,
 
     #[derivative(Debug = "ignore")]
-    handler: Option<Arc<dyn CmapEventHandler>>,
+    user_handler: Option<Arc<dyn CmapEventHandler>>,
+
+    #[derivative(Debug = "ignore")]
+    tracing_handler: Option<Arc<dyn CmapEventHandler>>,
 }
 
 impl Connection {
@@ -126,7 +129,10 @@ impl Connection {
             ready_and_available_time: None,
             stream: AsyncStream::connect(stream_options).await?,
             address,
-            handler: options.and_then(|options| options.event_handler),
+            user_handler: options
+                .as_ref()
+                .and_then(|options| options.event_handler.clone()),
+            tracing_handler: options.and_then(|options| options.tracing_handler),
             stream_description: None,
             error: false,
             pinned_sender: None,
@@ -167,6 +173,7 @@ impl Connection {
                 connect_timeout,
                 tls_options,
                 event_handler: None,
+                tracing_handler: None,
             }),
         )
         .await
@@ -372,7 +379,10 @@ impl Connection {
     /// Close this connection, emitting a `ConnectionClosedEvent` with the supplied reason.
     fn close(&mut self, reason: ConnectionClosedReason) {
         self.pool_manager.take();
-        if let Some(ref handler) = self.handler {
+        if let Some(ref handler) = self.user_handler {
+            handler.handle_connection_closed_event(self.closed_event(reason.clone()));
+        }
+        if let Some(ref handler) = self.tracing_handler {
             handler.handle_connection_closed_event(self.closed_event(reason));
         }
     }
@@ -386,7 +396,8 @@ impl Connection {
             address: self.address.clone(),
             generation: self.generation.clone(),
             stream: std::mem::replace(&mut self.stream, AsyncStream::Null),
-            handler: self.handler.take(),
+            user_handler: self.user_handler.take(),
+            tracing_handler: self.tracing_handler.take(),
             stream_description: self.stream_description.take(),
             command_executing: self.command_executing,
             error: self.error,

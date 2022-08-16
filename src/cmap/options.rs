@@ -186,6 +186,9 @@ pub(crate) struct ConnectionOptions {
 
     #[derivative(Debug = "ignore")]
     pub(crate) event_handler: Option<Arc<dyn CmapEventHandler>>,
+
+    #[derivative(Debug = "ignore")]
+    pub(crate) tracing_handler: Option<Arc<dyn CmapEventHandler>>,
 }
 
 impl From<ConnectionPoolOptions> for ConnectionOptions {
@@ -194,6 +197,7 @@ impl From<ConnectionPoolOptions> for ConnectionOptions {
             connect_timeout: pool_options.connect_timeout,
             tls_options: pool_options.tls_options,
             event_handler: pool_options.cmap_event_handler,
+            tracing_handler: pool_options.tracing_event_handler,
         }
     }
 }

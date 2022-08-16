@@ -20,6 +20,7 @@ use crate::{
     sdam::TopologyDescription,
     test::{
         log_uncaptured,
+        matches_test_file_verbosity_levels,
         spec::unified_runner::{
             entity::EventList,
             matcher::events_match,
@@ -30,6 +31,7 @@ use crate::{
         EventHandler,
         TestClient,
         CLIENT_OPTIONS,
+        DEFAULT_GLOBAL_TRACING_HANDLER,
         DEFAULT_URI,
         LOAD_BALANCED_MULTIPLE_URI,
         LOAD_BALANCED_SINGLE_URI,
@@ -55,8 +57,6 @@ use super::{
 
 #[cfg(feature = "tracing-unstable")]
 use crate::test::spec::unified_runner::matcher::tracing_events_match;
-#[cfg(feature = "tracing-unstable")]
-use crate::test::TracingHandler;
 
 const SKIPPED_OPERATIONS: &[&str] = &[
     "bulkWrite",
@@ -132,15 +132,8 @@ impl TestRunner {
             file_title
         ));
 
-        #[cfg(feature = "tracing-unstable")]
-        let (tracing_handler, _guard) = {
-            let handler = TracingHandler::new_from_test_file(&test_file);
-            let guard = handler.as_ref().map(|h| h.set_as_default());
-            (handler, guard)
-        };
-
-        for test_case in test_file.tests {
-            if let Some(skip_reason) = test_case.skip_reason {
+        for test_case in &test_file.tests {
+            if let Some(skip_reason) = &test_case.skip_reason {
                 log_uncaptured(format!(
                     "Skipping test case {:?}: {}",
                     &test_case.description, skip_reason
@@ -169,7 +162,7 @@ impl TestRunner {
                 continue;
             }
 
-            if let Some(requirements) = test_case.run_on_requirements {
+            if let Some(ref requirements) = test_case.run_on_requirements {
                 let mut can_run_on = false;
                 for requirement in requirements {
                     if requirement.can_run_on(&self.internal_client).await {
@@ -200,9 +193,10 @@ impl TestRunner {
             }
 
             #[cfg(feature = "tracing-unstable")]
-            let tracing_subscriber = tracing_handler.as_ref().map(|h| h.subscribe());
+            let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER
+                .subscribe(|e| matches_test_file_verbosity_levels(e, &test_file));
 
-            for operation in test_case.operations {
+            for operation in &test_case.operations {
                 self.sync_workers().await;
                 operation.execute(self, &test_case.description).await;
                 // This test (in src/test/spec/json/sessions/server-support.json) runs two
@@ -262,9 +256,10 @@ impl TestRunner {
                 self.sync_workers().await;
 
                 let all_tracing_events = tracing_subscriber
-                    .expect("log messages expected, but no tracing subscriber was registered")
-                    .collect_events(Duration::from_millis(500), |_| true)
+                    .collect_events(Duration::from_millis(5000), |_| true)
                     .await;
+
+                log_uncaptured(format!("all events: {:#?}", all_tracing_events));
 
                 for expectation in expected_messages {
                     let client_actual_events: Vec<_> = all_tracing_events
@@ -273,7 +268,13 @@ impl TestRunner {
                         .collect();
                     let expected_events = &expectation.messages;
 
-                    assert_eq!(client_actual_events.len(), expected_events.len());
+                    log_uncaptured(format!("got events: {:#?}", client_actual_events));
+
+                    assert_eq!(
+                        client_actual_events.len(),
+                        expected_events.len(),
+                        "Actual tracing event count should match expected"
+                    );
 
                     for (actual, expected) in client_actual_events.iter().zip(expected_events) {
                         if let Err(e) = tracing_events_match(actual, expected) {
@@ -427,9 +428,9 @@ impl TestRunner {
                         }
                     }
 
-                    // if we're observing log messages, we need to set the entity ID on the test options
-                    // so that it can be emitted in tracing events and used to filter events by client for
-                    // test assertions.
+                    // if we're observing log messages, we need to set the entity ID on the test
+                    // options so that it can be emitted in tracing events and
+                    // used to filter events by client for test assertions.
                     #[cfg(feature = "tracing-unstable")]
                     if client.observe_log_messages.is_some() {
                         options.test_options_mut().client_id = Some(client.id.clone());

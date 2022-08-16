@@ -20,7 +20,6 @@ use super::test_file::ExpectedMessage;
 #[cfg(feature = "tracing-unstable")]
 use crate::test::util::TracingEvent;
 
-
 use std::convert::TryInto;
 
 pub(crate) fn results_match(

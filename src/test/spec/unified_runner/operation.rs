@@ -25,6 +25,7 @@ use super::{
     EntityMap,
     ExpectError,
     ExpectedEvent,
+    TestClientEntity,
     TestCursor,
     TestFileEntity,
     TestRunner,
@@ -65,9 +66,7 @@ use crate::{
     },
     runtime,
     selection_criteria::ReadPreference,
-    test::{
-        FailPoint,
-    },
+    test::FailPoint,
     Collection,
     Database,
     IndexModel,
@@ -104,7 +103,7 @@ pub(crate) trait TestOperation: Debug + Send + Sync {
         false
     }
 
-    fn as_test_file_entity(&self) -> Option<&TestFileEntity> {
+    fn as_test_file_entities(&self) -> Option<&Vec<TestFileEntity>> {
         None
     }
 }
@@ -2093,12 +2092,22 @@ impl TestOperation for Close {
     ) -> BoxFuture<'a, Result<Option<Entity>>> {
         async move {
             let mut entities = test_runner.entities.write().await;
-            let cursor = entities.get_mut(id).unwrap().as_mut_cursor();
-            let rx = cursor.make_kill_watcher().await;
-            *cursor = TestCursor::Closed;
-            drop(entities);
-            let _ = rx.await;
-            Ok(None)
+            let target_entity = entities.get_mut(id).unwrap();
+            match target_entity {
+                Entity::Cursor(cursor) => {
+                    let rx = cursor.make_kill_watcher().await;
+                    *cursor = TestCursor::Closed;
+                    drop(entities);
+                    let _ = rx.await;
+                    Ok(None)
+                }
+                Entity::Client(client) => {
+                    client.client = TestClientEntity::Closed;
+                    drop(entities);
+                    Ok(None)
+                }
+                _ => panic!("Expected cursor or client entity, got {:?}", target_entity),
+            }
         }
         .boxed()
     }
@@ -2616,6 +2625,10 @@ impl TestOperation for CreateEntities {
         test_runner
             .populate_entity_map(&self.entities[..], "createEntities operation")
             .boxed()
+    }
+
+    fn as_test_file_entities(&self) -> Option<&Vec<TestFileEntity>> {
+        Some(&self.entities)
     }
 }
 

@@ -62,89 +62,91 @@ pub enum TracingEventValue {
 /// create a new `TracingSubscriber`.
 #[derive(Clone, Debug)]
 pub struct TracingHandler {
-    /// The maximum verbosity level which this handler will process and broadcast events for,
-    /// on a per-component basis.
-    max_verbosity_levels: HashMap<String, Level>,
     /// Sender for the channel where events will be broadcast.
     event_broadcaster: broadcast::Sender<TracingEvent>,
 }
 
 impl TracingHandler {
-    pub(crate) fn new(max_verbosity_levels: HashMap<String, Level>) -> TracingHandler {
+    pub(crate) fn new() -> TracingHandler {
         let (event_broadcaster, _) = tokio::sync::broadcast::channel(10_000);
-        Self {
-            max_verbosity_levels,
-            event_broadcaster,
-        }
-    }
-
-    pub(crate) fn new_from_test_file(test_file: &TestFile) -> Option<TracingHandler> {
-        // tests contain levels on a per-client basis, but we can only install a single
-        // global handler, so we need to combine all the components and levels across
-        // clients to determine what to listen for.
-        let mut merged_levels = HashMap::new();
-
-        let mut update_merged_levels = |entity: &TestFileEntity| {
-            let client_entity = match entity {
-                TestFileEntity::Client(client) => client,
-                _ => return,
-            };
-            if let Some(ref log_levels) = client_entity.observe_log_messages {
-                for (component, max_level) in log_levels.iter() {
-                    match merged_levels.get_mut(component) {
-                        Some(current_max) => {
-                            *current_max = Ord::max(*current_max, *max_level);
-                        }
-                        None => {
-                            merged_levels.insert(component.clone(), *max_level);
-                        }
-                    }
-                }
-            }
-        };
-
-        for test in &test_file.tests {
-            test.operations
-                .iter()
-                .filter(|o| o.name == "createEntities")
-                .for_each(|o| o.as_test_file_entities().unwrap().iter().for_each(|e| {
-                    update_merged_levels(&e)
-                }));
-        }
-
-        if let Some(ref create_entities) = test_file.create_entities {
-            create_entities.iter().for_each(|e| update_merged_levels(&e));
-        };
-
-        if merged_levels.len() > 0 {
-            Some(TracingHandler::new(merged_levels))
-        } else {
-            None
-        }
-    }
-
-    /// Installs this via `tracing` as the default handler for tracing events until the returned
-    /// guard is dropped.
-    pub fn set_as_default(&self) -> tracing::subscriber::DefaultGuard {
-        tracing::subscriber::set_default(self.clone())
+        Self { event_broadcaster }
     }
 
     /// Returns a `TracingSubscriber` that will listen for tracing events broadcast by this handler.
-    pub fn subscribe(&self) -> TracingSubscriber {
+    /// The subscriber will ignore any events that do not match the provided filter.
+    pub(crate) fn subscribe<F>(&self, filter: F) -> TracingSubscriber<F>
+    where
+        F: Fn(&TracingEvent) -> bool,
+    {
         TracingSubscriber {
             _handler: self,
             receiver: self.event_broadcaster.subscribe(),
+            filter,
         }
     }
+}
+
+pub(crate) fn matches_test_file_verbosity_levels(
+    event: &TracingEvent,
+    test_file: &TestFile,
+) -> bool {
+    let max_verbosity_levels = max_verbosity_levels_from_test_file(test_file);
+    match max_verbosity_levels.get(&event.target) {
+        None => false,
+        Some(level) => &event.level >= level,
+    }
+}
+
+fn max_verbosity_levels_from_test_file(test_file: &TestFile) -> HashMap<String, Level> {
+    // tests contain levels on a per-client basis, but we can only install a single
+    // global handler, so we need to combine all the components and levels across
+    // clients to determine what to listen for.
+    let mut merged_levels = HashMap::new();
+
+    let mut update_merged_levels = |entity: &TestFileEntity| {
+        let client_entity = match entity {
+            TestFileEntity::Client(client) => client,
+            _ => return,
+        };
+        if let Some(ref log_levels) = client_entity.observe_log_messages {
+            for (component, max_level) in log_levels.iter() {
+                match merged_levels.get_mut(component) {
+                    Some(current_max) => {
+                        *current_max = Ord::max(*current_max, *max_level);
+                    }
+                    None => {
+                        merged_levels.insert(component.clone(), *max_level);
+                    }
+                }
+            }
+        }
+    };
+
+    for test in &test_file.tests {
+        test.operations
+            .iter()
+            .filter(|o| o.name == "createEntities")
+            .for_each(|o| {
+                o.as_test_file_entities()
+                    .unwrap()
+                    .iter()
+                    .for_each(|e| update_merged_levels(&e))
+            });
+    }
+
+    if let Some(ref create_entities) = test_file.create_entities {
+        create_entities
+            .iter()
+            .for_each(|e| update_merged_levels(&e));
+    };
+
+    merged_levels
 }
 
 /// Implementation allowing `TracingHandler` to subscribe to `tracing` events.
 impl tracing::Subscriber for TracingHandler {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        match self.max_verbosity_levels.get(metadata.target()) {
-            None => false,
-            Some(level) => metadata.level() >= level,
-        }
+        metadata.target().starts_with("mongodb")
     }
 
     fn event(&self, event: &tracing::Event<'_>) {
@@ -170,26 +172,35 @@ impl tracing::Subscriber for TracingHandler {
     fn exit(&self, _span: &span::Id) {}
 }
 
-pub struct TracingSubscriber<'a> {
+pub struct TracingSubscriber<'a, F>
+where
+    F: Fn(&TracingEvent) -> bool,
+{
     /// A reference to the handler this subscriber is receiving events from.
     /// Stored here to ensure this subscriber cannot outlive the handler that is generating its
     /// events.
     _handler: &'a TracingHandler,
-    /// Receiver for the channel where `_handler` braodcasts events.
+    /// Receiver for the channel where `_handler` broadcasts events.
     receiver: broadcast::Receiver<TracingEvent>,
+    /// Custom filter for events. The subscriber will ignore any events published by its
+    /// corresponding handler that do not match the filter.
+    filter: F,
 }
 
-impl TracingSubscriber<'_> {
+impl<F> TracingSubscriber<'_, F>
+where
+    F: Fn(&TracingEvent) -> bool,
+{
     /// Waits up to `timeout` for an event matching the specified filter. Returns a matching event
     /// if one is found, or otherwise None.
-    pub async fn wait_for_event<F>(&mut self, timeout: Duration, filter: F) -> Option<TracingEvent>
+    pub async fn wait_for_event<T>(&mut self, timeout: Duration, filter: T) -> Option<TracingEvent>
     where
-        F: Fn(&TracingEvent) -> bool,
+        T: Fn(&TracingEvent) -> bool,
     {
         runtime::timeout(timeout, async {
             loop {
                 match self.receiver.recv().await {
-                    Ok(event) if filter(&event) => return event.into(),
+                    Ok(event) if (self.filter)(&event) && filter(&event) => return event.into(),
                     // the channel hit capacity and missed some events.
                     Err(broadcast::error::RecvError::Lagged(amount_skipped)) => {
                         panic!("receiver lagged and skipped {} events", amount_skipped)
@@ -206,9 +217,9 @@ impl TracingSubscriber<'_> {
 
     /// Collects events matching the specified filter. Returns once `timeout` has passed without
     /// a matching event occurring.
-    pub async fn collect_events<F>(&mut self, timeout: Duration, filter: F) -> Vec<TracingEvent>
+    pub async fn collect_events<T>(&mut self, timeout: Duration, filter: T) -> Vec<TracingEvent>
     where
-        F: Fn(&TracingEvent) -> bool,
+        T: Fn(&TracingEvent) -> bool,
     {
         let mut events = Vec::new();
         while let Some(event) = self.wait_for_event(timeout, &filter).await {

@@ -15,7 +15,7 @@ use tokio::sync::RwLockWriteGuard;
 use crate::test::{log_uncaptured, run_single_test, LOCK};
 
 pub(crate) use self::{
-    entity::{ClientEntity, Entity, SessionEntity, TestCursor},
+    entity::{ClientEntity, Entity, SessionEntity, TestClientEntity, TestCursor},
     matcher::{events_match, results_match},
     operation::Operation,
     test_event::{ExpectedCmapEvent, ExpectedCommandEvent, ExpectedEvent, ObserveEvent},

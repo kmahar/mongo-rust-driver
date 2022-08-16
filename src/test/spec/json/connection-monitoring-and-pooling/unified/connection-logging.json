@@ -1,9 +1,17 @@
 {
   "description": "connection-logging",
   "schemaVersion": "1.11",
+  "createEntities": [
+    {
+      "client": {
+        "id": "failPointClient",
+        "useMultipleMongoses": false
+      }
+    }
+  ],
   "tests": [
     {
-      "description": "A successful command",
+      "description": "Create a client, run a command, and close the client",
       "operations": [
         {
           "name": "createEntities",
@@ -154,7 +162,7 @@
                 "serverPort": {
                   "$$exists": true
                 },
-                "reason": "Pool closed"
+                "reason": "Connection pool was closed"
               }
             },
             {
@@ -168,6 +176,174 @@
                 "serverPort": {
                   "$$exists": true
                 }
+              }
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "description": "Pool is cleared and connection checkout fails",
+      "runOnRequirements": [
+        {
+          "minServerVersion": "4.9"
+        }
+      ],
+      "operations": [
+        {
+          "name": "createEntities",
+          "object": "testRunner",
+          "arguments": {
+            "entities": [
+              {
+                "client": {
+                  "id": "client",
+                  "useMultipleMongoses": false,
+                  "uriOptions": {
+                    "appname": "clientAppName",
+                    "retryReads": false
+                  },
+                  "observeLogMessages": {
+                    "connection": "debug"
+                  }
+                }
+              }
+            ]
+          }
+        },
+        {
+          "name": "failPoint",
+          "object": "testRunner",
+          "arguments": {
+            "client": "failPointClient",
+            "failPoint": {
+              "configureFailPoint": "failCommand",
+              "mode": {
+                "times": 1
+              },
+              "data": {
+                "failCommands": [
+                  "isMaster",
+                  "hello"
+                ],
+                "closeConnection": true,
+                "appName": "clientAppName"
+              }
+            }
+          }
+        },
+        {
+          "name": "listDatabases",
+          "object": "client",
+          "arguments": {
+            "filter": {}
+          },
+          "expectError": {
+            "isClientError": true
+          }
+        }
+      ],
+      "expectLogMessages": [
+        {
+          "client": "client",
+          "messages": [
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection pool created",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection pool ready",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection checkout started",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection created",
+                "driverConnectionId": {
+                  "$$exists": true
+                },
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection pool cleared",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection closed",
+                "driverConnectionId": {
+                  "$$exists": true
+                },
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                },
+                "reason": "An error occurred while using the connection"
+              }
+            },
+            {
+              "level": "debug",
+              "component": "connection",
+              "data": {
+                "message": "Connection checkout failed",
+                "serverHost": {
+                  "$$exists": true
+                },
+                "serverPort": {
+                  "$$exists": true
+                },
+                "reason": "An error occurred while trying to establish a connection"
               }
             }
           ]
