@@ -308,7 +308,7 @@ impl TracingRepresentation for ConnectionCheckoutFailedReason {
                 "Wait queue timeout elapsed without a connection becoming available".to_string()
             }
             ConnectionCheckoutFailedReason::ConnectionError => {
-                "An error occurred while trying to establish a connection".to_string()
+                "An error occurred while trying to establish a new connection".to_string()
             }
         }
     }
