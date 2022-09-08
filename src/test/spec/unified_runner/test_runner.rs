@@ -432,6 +432,7 @@ impl TestRunner {
                     #[cfg(feature = "tracing-unstable")]
                     if client.observe_log_messages.is_some() {
                         options.test_options_mut().client_id = Some(client.id.clone());
+                        options.tracing_max_document_length_bytes = Some(10000);
                     }
 
                     let client = Client::with_options(options).unwrap();
