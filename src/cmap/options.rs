@@ -107,12 +107,12 @@ pub(crate) struct ConnectionPoolOptions {
 
 impl ConnectionPoolOptions {
     pub(crate) fn from_client_options(options: &ClientOptions) -> Self {
-        #[cfg(test)]
+        #[cfg(all(test, feature = "tracing-unstable"))]
         let client_id = options
             .test_options
             .as_ref()
             .and_then(|opts| opts.client_id.clone());
-        #[cfg(not(test))]
+        #[cfg(all(not(test), feature = "tracing-unstable"))]
         let client_id = None;
 
         #[cfg(feature = "tracing-unstable")]
