@@ -21,11 +21,24 @@ use crate::event::{
         CommandStartedEvent,
         CommandSucceededEvent,
     },
+    sdam::{
+        SdamEventHandler,
+        ServerDescriptionChangedEvent,
+        ServerOpeningEvent,
+        ServerClosedEvent,
+        TopologyDescriptionChangedEvent,
+        TopologyOpeningEvent,
+        TopologyClosedEvent,
+        ServerHeartbeatStartedEvent,
+        ServerHeartbeatSucceededEvent,
+        ServerHeartbeatFailedEvent,
+    }
 };
 use bson::Bson;
 
 pub(crate) const COMMAND_TRACING_EVENT_TARGET: &str = "mongodb::command";
 pub(crate) const CONNECTION_TRACING_EVENT_TARGET: &str = "mongodb::connection";
+pub(crate) const SDAM_TRACING_EVENT_TARGET: &str = "mongodb::sdam";
 pub(crate) const DEFAULT_MAX_DOCUMENT_LENGTH_BYTES: usize = 1000;
 
 pub(crate) struct CommandTracingEventEmitter {
@@ -48,12 +61,6 @@ impl CommandTracingEventEmitter {
             client_id,
         }
     }
-
-    fn serialize_command_or_reply(&self, doc: bson::Document) -> String {
-        let mut ext_json = doc.tracing_representation();
-        truncate_on_char_boundary(&mut ext_json, self.max_document_length_bytes);
-        ext_json
-    }
 }
 
 impl CommandEventHandler for CommandTracingEventEmitter {
@@ -61,7 +68,7 @@ impl CommandEventHandler for CommandTracingEventEmitter {
         tracing_debug!(
             target: COMMAND_TRACING_EVENT_TARGET,
             client_id: self.client_id.as_ref(),
-            command = self.serialize_command_or_reply(event.command).as_str(),
+            command = serialize_command_or_reply(event.command, self.max_document_length_bytes).as_str(),
             database_name = event.db.as_str(),
             command_name = event.command_name.as_str(),
             request_id = event.request_id,
@@ -81,7 +88,7 @@ impl CommandEventHandler for CommandTracingEventEmitter {
         tracing_debug!(
             target: COMMAND_TRACING_EVENT_TARGET,
             client_id: self.client_id.as_ref(),
-            reply = self.serialize_command_or_reply(event.reply).as_str(),
+            reply = serialize_command_or_reply(event.reply, self.max_document_length_bytes).as_str(),
             command_name = event.command_name.as_str(),
             request_id = event.request_id,
             driver_connection_id = event.connection.id,
@@ -259,6 +266,109 @@ impl CmapEventHandler for ConnectionTracingEventEmitter {
     }
 }
 
+pub(crate) struct SdamTracingEventEmitter {
+    max_document_length_bytes: usize,
+    /// We always store this so we don't have to branch on whether or not we're in a test
+    /// whenever we emit a tracing event, however it is only actually added to the events
+    /// for tests.
+    #[allow(dead_code)]
+    client_id: Option<String>,
+}
+
+impl SdamEventHandler for SdamTracingEventEmitter {
+    fn handle_server_description_changed_event(&self, event: ServerDescriptionChangedEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            server_host = event.address.host(),
+            server_port = event.address.port(),
+            topology_id = event.topology_id.tracing_representation(),
+            previous_description = event.previous_description.tracing_representation(),
+            new_description = event.new_description.tracing_representation(),
+        );
+    }
+
+    fn handle_server_opening_event(&self, event: ServerOpeningEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            server_host = event.address.host(),
+            server_port = event.address.port(),
+            topology_id = event.topology_id.tracing_representation(),
+        );
+    }
+
+    fn handle_server_closed_event(&self, event: ServerClosedEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            server_host = event.address.host(),
+            server_port = event.address.port(),
+            topology_id = event.topology_id.tracing_representation(),
+        );
+    }
+
+    fn handle_topology_description_changed_event(&self, event: TopologyDescriptionChangedEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            topology_id = event.topology_id.tracing_representation(),
+            previous_description = event.previous_description.tracing_representation(),
+            new_description = event.new_description.tracing_representation(),
+        );
+    }
+
+    fn handle_topology_opening_event(&self, event: TopologyOpeningEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            topology_id = event.topology_id.tracing_representation(),
+        );
+    }
+
+    fn handle_topology_closed_event(&self, event: TopologyClosedEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            topology_id = event.topology_id.tracing_representation(),
+        );
+    }
+
+    fn handle_server_heartbeat_started_event(&self, event: ServerHeartbeatStartedEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            server_host = event.server_address.host(),
+            server_port = event.server_address.port(),
+            awaited = false, // TODO: use actual value of `awaited`
+        );
+    }
+
+    fn handle_server_heartbeat_succeeded_event(&self, event: ServerHeartbeatSucceededEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            server_host = event.server_address.host(),
+            server_port = event.server_address.port(),
+            duration_ms = event.duration.as_millis(),
+            reply = serialize_command_or_reply(event.reply, self.max_document_length_bytes),
+            awaited = false, // TODO: use actual value of `awaited`
+        );
+    }
+
+    fn handle_server_heartbeat_failed_event(&self, event: ServerHeartbeatFailedEvent) {
+        tracing_debug!(
+            target: SDAM_TRACING_EVENT_TARGET,
+            client_id: self.client_id.as_ref(),
+            server_host = event.server_address.host(),
+            server_port = event.server_address.port(),
+            duration_ms = event.duration.as_millis(),
+            //reply = serialize_command_or_reply(event.reply, self.max_document_length_bytes),
+            awaited = false, // TODO: use actual value of `awaited`
+        );
+    }
+}
+
 trait TracingRepresentation {
     fn tracing_representation(self) -> String;
 }
@@ -312,6 +422,30 @@ impl TracingRepresentation for ConnectionCheckoutFailedReason {
             }
         }
     }
+}
+
+impl TracingRepresentation for crate::sdam::public::ServerInfo<'_> {
+    fn tracing_representation(self) -> String {
+        match bson::to_bson(&self) {
+            Ok(bson) => bson.into_canonical_extjson().to_string(),
+            Err(err) => format!("Failed to serialize server description: {}", err),
+        }
+    }
+}
+
+impl TracingRepresentation for crate::event::sdam::TopologyDescription {
+    fn tracing_representation(self) -> String {
+        match bson::to_bson(&self) {
+            Ok(bson) => bson.into_canonical_extjson().to_string(),
+            Err(err) => format!("Failed to serialize topology description: {}", err),
+        }
+    }
+}
+
+fn serialize_command_or_reply(doc: bson::Document, max_length_bytes: usize) -> String {
+    let mut ext_json = doc.tracing_representation();
+    truncate_on_char_boundary(&mut ext_json, max_length_bytes);
+    ext_json
 }
 
 // TODO: subject to change based on what exact version of truncation we decide to go with.
