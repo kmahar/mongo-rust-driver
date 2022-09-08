@@ -390,6 +390,24 @@ functions:
             TLS_FEATURE=${TLS_FEATURE} \
             .evergreen/run-tests.sh
 
+  "run tracing tests":
+    - command: shell.exec
+      type: test
+      params:
+        shell: bash
+        working_dir: "src"
+        script: |
+          ${PREPARE_SHELL}
+          export MONGODB_URI="${MONGODB_URI}"
+          export SSL="${SSL}"
+          export SINGLE_MONGOS_LB_URI="${SINGLE_MONGOS_LB_URI}"
+          export MULTI_MONGOS_LB_URI="${MULTI_MONGOS_LB_URI}"
+          . .evergreen/generate-uri.sh
+
+          SINGLE_THREAD=${SINGLE_THREAD} \
+            ASYNC_RUNTIME=${ASYNC_RUNTIME} \
+          .evergreen/run-tracing-tests.sh
+
   "run serverless tests":
     - command: shell.exec
       type: test
@@ -1107,6 +1125,48 @@ tasks:
     commands:
       - func: "install junit dependencies"
       - func: "run serverless tests"
+
+  - name: "test-tracing-standalone"
+    tags: ["tracing"]
+    commands:
+    - func: "install junit dependencies"
+    - func: "bootstrap mongo-orchestration"
+      vars:
+        MONGODB_VERSION: "6.0"
+        TOPOLOGY: "server"
+    - func: "run tracing tests"
+
+  - name: "test-tracing-replica_set"
+    tags: ["tracing"]
+    commands:
+    - func: "install junit dependencies"
+    - func: "bootstrap mongo-orchestration"
+      vars:
+        MONGODB_VERSION: "6.0"
+        TOPOLOGY: "replica_set"
+    - func: "run tracing tests"
+
+  - name: "test-tracing-sharded_cluster"
+    tags: ["tracing"]
+    commands:
+    - func: "install junit dependencies"
+    - func: "bootstrap mongo-orchestration"
+      vars:
+        MONGODB_VERSION: "6.0"
+        TOPOLOGY: "sharded_cluster"
+    - func: "run tracing tests"
+
+  - name: "test-tracing-load_balancer"
+    tags: ["tracing"]
+    commands:
+      - func: "install junit dependencies"
+      - func: "bootstrap mongo-orchestration"
+        vars:
+          MONGODB_VERSION: "6.0"
+          TOPOLOGY: "sharded_cluster"
+          LOAD_BALANCER: "true"
+      - func: "start load balancer"
+      - func: "run tests"
 
   - name: "test-atlas-connectivity"
     tags: ["atlas-connect"]
@@ -1873,6 +1933,14 @@ buildvariants:
     - ".rapid .standalone"
     - ".6.0 .standalone"
     - ".5.0 .standalone"
+
+- matrix_name: "tracing-tests"
+  matrix_spec:
+    os: "*"
+    async-runtime: "*"
+  display_name: "Tracing tests on ${os} with ${async-runtime}"
+  tasks:
+    - ".tracing"
 
 -
   name: "lint"
