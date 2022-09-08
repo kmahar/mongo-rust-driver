@@ -2,6 +2,7 @@
 
 set -o errexit
 set -o pipefail
+set -o xtrace
 
 source ./.evergreen/env.sh
 
@@ -20,10 +21,6 @@ if [ "$ASYNC_RUNTIME" = "async-std" ]; then
 elif [ "$ASYNC_RUNTIME" != "tokio" ]; then
     echo "invalid async runtime: ${ASYNC_RUNTIME}" >&2
     exit 1
-fi
-
-if [ "$SINGLE_THREAD" = true ]; then
-	OPTIONS="$OPTIONS --test-threads=1"
 fi
 
 echo "cargo test options: ${DEFAULT_FEATURES} --features ${FEATURE_FLAGS} ${OPTIONS}"

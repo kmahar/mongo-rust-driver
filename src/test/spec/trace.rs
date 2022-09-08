@@ -194,13 +194,13 @@ async fn command_logging_unified() {
     .await;
 }
 
-#[cfg_attr(feature = "tokio-runtime", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(feature = "async-std-runtime", async_std::test)]
-async fn connection_logging_unified() {
-    let _guard = LOCK.run_exclusively().await;
-    run_spec_test_with_path(
-        &["connection-monitoring-and-pooling", "unified"],
-        run_unified_format_test,
-    )
-    .await;
-}
+// #[cfg_attr(feature = "tokio-runtime", tokio::test(flavor = "multi_thread"))]
+// #[cfg_attr(feature = "async-std-runtime", async_std::test)]
+// async fn connection_logging_unified() {
+//     let _guard = LOCK.run_exclusively().await;
+//     run_spec_test_with_path(
+//         &["connection-monitoring-and-pooling", "unified"],
+//         run_unified_format_test,
+//     )
+//     .await;
+// }

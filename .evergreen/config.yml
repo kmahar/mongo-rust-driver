@@ -1166,7 +1166,7 @@ tasks:
           TOPOLOGY: "sharded_cluster"
           LOAD_BALANCER: "true"
       - func: "start load balancer"
-      - func: "run tests"
+      - func: "run tracing tests"
 
   - name: "test-atlas-connectivity"
     tags: ["atlas-connect"]
