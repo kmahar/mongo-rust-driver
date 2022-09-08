@@ -88,8 +88,10 @@ lazy_static! {
         std::env::var("SERVERLESS_ATLAS_USER").ok();
     pub(crate) static ref SERVERLESS_ATLAS_PASSWORD: Option<String> =
         std::env::var("SERVERLESS_ATLAS_PASSWORD").ok();
+}
 
-    #[cfg(feature = "tracing-unstable")]
+#[cfg(feature = "tracing-unstable")]
+lazy_static! {
     pub(crate) static ref DEFAULT_GLOBAL_TRACING_HANDLER: TracingHandler = {
         let handler = TracingHandler::new();
         tracing::subscriber::set_global_default(handler.clone())

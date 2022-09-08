@@ -20,7 +20,6 @@ use crate::{
     sdam::TopologyDescription,
     test::{
         log_uncaptured,
-        matches_test_file_verbosity_levels,
         spec::unified_runner::{
             entity::EventList,
             matcher::events_match,
@@ -31,7 +30,6 @@ use crate::{
         EventHandler,
         TestClient,
         CLIENT_OPTIONS,
-        DEFAULT_GLOBAL_TRACING_HANDLER,
         DEFAULT_URI,
         LOAD_BALANCED_MULTIPLE_URI,
         LOAD_BALANCED_SINGLE_URI,
@@ -56,7 +54,11 @@ use super::{
 };
 
 #[cfg(feature = "tracing-unstable")]
-use crate::test::spec::unified_runner::matcher::tracing_events_match;
+use crate::test::{
+    spec::unified_runner::matcher::tracing_events_match,
+    matches_test_file_verbosity_levels,
+    DEFAULT_GLOBAL_TRACING_HANDLER,
+};
 
 const SKIPPED_OPERATIONS: &[&str] = &[
     "bulkWrite",
