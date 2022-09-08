@@ -1,5 +1,5 @@
 {
-  "description": "command-logging",
+  "description": "operation-id",
   "schemaVersion": "1.11",
   "createEntities": [
     {
@@ -39,16 +39,28 @@
   ],
   "tests": [
     {
-      "description": "A successful command",
+      "description": "Successful bulk write command log messages include operationIds",
       "operations": [
         {
-          "name": "runCommand",
-          "object": "database",
+          "name": "bulkWrite",
+          "object": "logging-tests-collection",
           "arguments": {
-            "command": {
-              "ping": 1
-            },
-            "commandName": "ping"
+            "requests": [
+              {
+                "insertOne": {
+                  "document": {
+                    "x": 1
+                  }
+                }
+              },
+              {
+                "deleteOne": {
+                  "filter": {
+                    "x": 1
+                  }
+                }
+              }
+            ]
           }
         }
       ],
@@ -62,25 +74,8 @@
               "data": {
                 "message": "Command started",
                 "databaseName": "logging-tests",
-                "commandName": "ping",
-                "command": {
-                  "$$matchAsDocument": {
-                    "$$matchAsRoot": {
-                      "ping": 1,
-                      "$db": "logging-tests"
-                    }
-                  }
-                },
-                "requestId": {
-                  "$$exists": true
-                },
-                "driverConnectionId": {
-                  "$$exists": true
-                },
-                "serverHost": {
-                  "$$exists": true
-                },
-                "serverPort": {
+                "commandName": "insert",
+                "operationId": {
                   "$$exists": true
                 }
               }
@@ -90,23 +85,31 @@
               "component": "command",
               "data": {
                 "message": "Command succeeded",
-                "commandName": "ping",
-                "reply": {
-                  "$$type": "string"
-                },
-                "requestId": {
+                "commandName": "insert",
+                "operationId": {
                   "$$exists": true
-                },
-                "driverConnectionId": {
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "command",
+              "data": {
+                "message": "Command started",
+                "databaseName": "logging-tests",
+                "commandName": "delete",
+                "operationId": {
                   "$$exists": true
-                },
-                "serverHost": {
-                  "$$exists": true
-                },
-                "serverPort": {
-                  "$$exists": true
-                },
-                "durationMS": {
+                }
+              }
+            },
+            {
+              "level": "debug",
+              "component": "command",
+              "data": {
+                "message": "Command succeeded",
+                "commandName": "delete",
+                "operationId": {
                   "$$exists": true
                 }
               }
@@ -116,15 +119,26 @@
       ]
     },
     {
-      "description": "A failed command",
+      "description": "Failed bulk write command log message includes operationId",
       "operations": [
         {
-          "name": "find",
-          "object": "collection",
+          "name": "bulkWrite",
+          "object": "logging-tests-collection",
           "arguments": {
-            "filter": {
-              "$or": true
-            }
+            "requests": [
+              {
+                "updateOne": {
+                  "filter": {
+                    "x": 1
+                  },
+                  "update": [
+                    {
+                      "$invalidOperator": true
+                    }
+                  ]
+                }
+              }
+            ]
           },
           "expectError": {
             "isClientError": false
@@ -141,20 +155,8 @@
               "data": {
                 "message": "Command started",
                 "databaseName": "logging-tests",
-                "commandName": "find",
-                "command": {
-                  "$$type": "string"
-                },
-                "requestId": {
-                  "$$exists": true
-                },
-                "driverConnectionId": {
-                  "$$exists": true
-                },
-                "serverHost": {
-                  "$$exists": true
-                },
-                "serverPort": {
+                "commandName": "update",
+                "operationId": {
                   "$$exists": true
                 }
               }
@@ -164,23 +166,8 @@
               "component": "command",
               "data": {
                 "message": "Command failed",
-                "commandName": "find",
-                "failure": {
-                  "$$exists": true
-                },
-                "requestId": {
-                  "$$exists": true
-                },
-                "driverConnectionId": {
-                  "$$exists": true
-                },
-                "serverHost": {
-                  "$$exists": true
-                },
-                "serverPort": {
-                  "$$exists": true
-                },
-                "durationMS": {
+                "commandName": "update",
+                "operationId": {
                   "$$exists": true
                 }
               }

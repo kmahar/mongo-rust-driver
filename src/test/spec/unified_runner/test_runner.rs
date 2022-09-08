@@ -259,16 +259,12 @@ impl TestRunner {
                     .collect_events(Duration::from_millis(5000), |_| true)
                     .await;
 
-                log_uncaptured(format!("all events: {:#?}", all_tracing_events));
-
                 for expectation in expected_messages {
                     let client_actual_events: Vec<_> = all_tracing_events
                         .iter()
                         .filter(|e| e.client_id() == Some(expectation.client.clone()))
                         .collect();
                     let expected_events = &expectation.messages;
-
-                    log_uncaptured(format!("got events: {:#?}", client_actual_events));
 
                     assert_eq!(
                         client_actual_events.len(),

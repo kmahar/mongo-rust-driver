@@ -1,6 +1,6 @@
 description: "command-logging"
 
-schemaVersion: "1.10"
+schemaVersion: "1.11"
 
 createEntities:
   - client:
@@ -44,7 +44,7 @@ tests:
                   $$matchAsRoot:
                     ping: 1
                     $db: *databaseName
-              requestId: { $$type: [int, long] }
+              requestId: { $$exists: true }
               driverConnectionId: { $$exists: true }
               serverHost: { $$exists: true }
               serverPort:  { $$exists: true }
@@ -55,7 +55,7 @@ tests:
               message: "Command succeeded"
               commandName: *commandName
               reply: { $$type: string }
-              requestId: { $$type: [int, long] }
+              requestId: { $$exists: true }
               driverConnectionId: { $$exists: true }
               serverHost: { $$exists: true }
               serverPort: { $$exists: true }
@@ -79,7 +79,7 @@ tests:
               databaseName: *databaseName
               commandName: *commandName
               command: { $$type: string }
-              requestId: { $$type: [int, long] }
+              requestId: { $$exists: true }
               driverConnectionId: { $$exists: true }
               serverHost: { $$exists: true }
               serverPort:  { $$exists: true }
@@ -90,7 +90,7 @@ tests:
               message: "Command failed"
               commandName: *commandName
               failure: { $$exists: true }
-              requestId:  { $$type: [int, long] }
+              requestId:  { $$exists: true }
               driverConnectionId: { $$exists: true }
               serverHost: { $$exists: true }
               serverPort:  { $$exists: true }
