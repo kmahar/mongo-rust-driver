@@ -1,6 +1,6 @@
 description: "redacted-commands"
 
-schemaVersion: "1.10"
+schemaVersion: "1.11"
 
 runOnRequirements:
   - minServerVersion: "5.0"
@@ -44,6 +44,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: authenticate
@@ -72,6 +73,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: saslStart
@@ -100,6 +102,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: saslContinue
@@ -155,6 +158,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: createUser
@@ -183,6 +187,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: updateUser
@@ -209,6 +214,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: copydbgetnonce
@@ -235,6 +241,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: copydbsaslstart
@@ -261,6 +268,7 @@ tests:
               command: "{}"
           - level: debug
             component: command
+            hasFailure: false
             data:
               message: "Command failed"
               commandName: copydb

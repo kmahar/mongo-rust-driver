@@ -37,7 +37,7 @@ pub(crate) use self::{
 };
 
 #[cfg(feature = "tracing-unstable")]
-pub(crate) use self::util::{matches_test_file_verbosity_levels, TracingEvent, TracingHandler};
+pub(crate) use self::util::{TracingEvent, TracingHandler};
 
 use async_once::AsyncOnce;
 use home::home_dir;

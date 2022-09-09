@@ -105,10 +105,16 @@ impl CommandEventHandler for CommandTracingEventEmitter {
     }
 
     fn handle_command_failed_event(&self, event: CommandFailedEvent) {
+        let failure = match event.failure.kind.as_ref() {
+            crate::error::ErrorKind::Redacted => None,
+            _ => {
+                Some(event.failure.tracing_representation())
+            },
+        };
         tracing_debug!(
             target: COMMAND_TRACING_EVENT_TARGET,
             client_id: self.client_id.as_ref(),
-            failure = event.failure.tracing_representation().as_str(),
+            failure = failure,
             command_name = event.command_name.as_str(),
             request_id = event.request_id,
             driver_connection_id = event.connection.id,
@@ -418,7 +424,7 @@ impl TracingRepresentation for ConnectionCheckoutFailedReason {
                 "Wait queue timeout elapsed without a connection becoming available".to_string()
             }
             ConnectionCheckoutFailedReason::ConnectionError => {
-                "An error occurred while trying to establish a new connection".to_string()
+                "An error occurred while trying to establish a connection".to_string()
             }
         }
     }

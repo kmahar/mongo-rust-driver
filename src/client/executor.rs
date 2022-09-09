@@ -730,10 +730,16 @@ impl Client {
         match command_result {
             Err(mut err) => {
                 self.emit_command_event(|| {
+                    let failure = if should_redact {
+                        Error::redacted()
+                    } else {
+                        err.clone()
+                    };
+
                     CommandEvent::Failed(CommandFailedEvent {
                         duration,
                         command_name: cmd_name.clone(),
-                        failure: err.clone(),
+                        failure: failure,
                         request_id,
                         connection: connection_info.clone(),
                         service_id,

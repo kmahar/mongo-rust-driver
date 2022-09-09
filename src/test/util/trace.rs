@@ -3,9 +3,11 @@ use crate::{
     test::spec::unified_runner::{TestFile, TestFileEntity},
 };
 use serde::Serialize;
-use std::{collections::HashMap, time::Duration};
+use std::{collections::HashMap, time::Duration, sync::{Arc, RwLock}};
 use tokio::sync::broadcast;
 use tracing::{field::Field, span, Level, Metadata};
+
+use super::log_uncaptured;
 
 /// Models the data reported in a tracing event.
 #[derive(Debug, Clone)]
@@ -64,40 +66,43 @@ pub enum TracingEventValue {
 pub struct TracingHandler {
     /// Sender for the channel where events will be broadcast.
     event_broadcaster: broadcast::Sender<TracingEvent>,
+
+    levels: Arc<RwLock<HashMap<String, Level>>>,
 }
 
 impl TracingHandler {
     pub(crate) fn new() -> TracingHandler {
         let (event_broadcaster, _) = tokio::sync::broadcast::channel(10_000);
-        Self { event_broadcaster }
+        Self { event_broadcaster, levels: Arc::new(RwLock::new(HashMap::default())) }
+    }
+
+    pub(crate) fn set_levels(&self, new_levels: HashMap<String, Level>)-> TracingLevelsGuard {
+        let mut levels = self.levels.write().unwrap();
+        *levels = new_levels;
+        TracingLevelsGuard { handler: self }
     }
 
     /// Returns a `TracingSubscriber` that will listen for tracing events broadcast by this handler.
     /// The subscriber will ignore any events that do not match the provided filter.
-    pub(crate) fn subscribe<F>(&self, filter: F) -> TracingSubscriber<F>
-    where
-        F: Fn(&TracingEvent) -> bool,
-    {
+    pub(crate) fn subscribe(&self) -> TracingSubscriber {
         TracingSubscriber {
             _handler: self,
             receiver: self.event_broadcaster.subscribe(),
-            filter,
         }
     }
 }
 
-pub(crate) fn matches_test_file_verbosity_levels(
-    event: &TracingEvent,
-    test_file: &TestFile,
-) -> bool {
-    let max_verbosity_levels = max_verbosity_levels_from_test_file(test_file);
-    match max_verbosity_levels.get(&event.target) {
-        None => false,
-        Some(level) => &event.level >= level,
+pub struct TracingLevelsGuard<'a> {
+    handler: &'a TracingHandler,
+}
+
+impl Drop for TracingLevelsGuard<'_> {
+    fn drop(&mut self) {
+        self.handler.levels.write().unwrap().clear();
     }
 }
 
-fn max_verbosity_levels_from_test_file(test_file: &TestFile) -> HashMap<String, Level> {
+pub(crate) fn max_verbosity_levels_from_test_file(test_file: &TestFile) -> HashMap<String, Level> {
     // tests contain levels on a per-client basis, but we can only install a single
     // global handler, so we need to combine all the components and levels across
     // clients to determine what to listen for.
@@ -146,7 +151,11 @@ fn max_verbosity_levels_from_test_file(test_file: &TestFile) -> HashMap<String, 
 /// Implementation allowing `TracingHandler` to subscribe to `tracing` events.
 impl tracing::Subscriber for TracingHandler {
     fn enabled(&self, metadata: &Metadata<'_>) -> bool {
-        metadata.target().starts_with("mongodb")
+        let levels = self.levels.read().unwrap();
+        match levels.get(metadata.target()) {
+            Some(level) => return metadata.level() <= level,
+            None => return false,
+        }
     }
 
     fn event(&self, event: &tracing::Event<'_>) {
@@ -172,25 +181,16 @@ impl tracing::Subscriber for TracingHandler {
     fn exit(&self, _span: &span::Id) {}
 }
 
-pub struct TracingSubscriber<'a, F>
-where
-    F: Fn(&TracingEvent) -> bool,
-{
+pub struct TracingSubscriber<'a> {
     /// A reference to the handler this subscriber is receiving events from.
     /// Stored here to ensure this subscriber cannot outlive the handler that is generating its
     /// events.
     _handler: &'a TracingHandler,
     /// Receiver for the channel where `_handler` broadcasts events.
     receiver: broadcast::Receiver<TracingEvent>,
-    /// Custom filter for events. The subscriber will ignore any events published by its
-    /// corresponding handler that do not match the filter.
-    filter: F,
 }
 
-impl<F> TracingSubscriber<'_, F>
-where
-    F: Fn(&TracingEvent) -> bool,
-{
+impl TracingSubscriber<'_> {
     /// Waits up to `timeout` for an event matching the specified filter. Returns a matching event
     /// if one is found, or otherwise None.
     pub async fn wait_for_event<T>(&mut self, timeout: Duration, filter: T) -> Option<TracingEvent>
@@ -200,7 +200,7 @@ where
         runtime::timeout(timeout, async {
             loop {
                 match self.receiver.recv().await {
-                    Ok(event) if (self.filter)(&event) && filter(&event) => return event.into(),
+                    Ok(event) if filter(&event) => return event.into(),
                     // the channel hit capacity and missed some events.
                     Err(broadcast::error::RecvError::Lagged(amount_skipped)) => {
                         panic!("receiver lagged and skipped {} events", amount_skipped)

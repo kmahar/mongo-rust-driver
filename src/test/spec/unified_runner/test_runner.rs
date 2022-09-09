@@ -56,7 +56,7 @@ use super::{
 #[cfg(feature = "tracing-unstable")]
 use crate::test::{
     spec::unified_runner::matcher::tracing_events_match,
-    matches_test_file_verbosity_levels,
+    util::max_verbosity_levels_from_test_file,
     DEFAULT_GLOBAL_TRACING_HANDLER,
 };
 
@@ -195,8 +195,12 @@ impl TestRunner {
             }
 
             #[cfg(feature = "tracing-unstable")]
-            let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER
-                .subscribe(|e| matches_test_file_verbosity_levels(e, &test_file));
+            let (mut tracing_subscriber, _levels_guard) = {
+                let levels = max_verbosity_levels_from_test_file(&test_file);
+                let guard = DEFAULT_GLOBAL_TRACING_HANDLER.set_levels(levels);
+                let subscriber = DEFAULT_GLOBAL_TRACING_HANDLER.subscribe();
+                (subscriber, guard)
+            };
 
             for operation in &test_case.operations {
                 self.sync_workers().await;

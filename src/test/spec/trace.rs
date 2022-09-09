@@ -6,7 +6,6 @@ use crate::{
         run_spec_test_with_path,
         spec::run_unified_format_test,
         TestClient,
-        TracingEvent,
         DEFAULT_GLOBAL_TRACING_HANDLER,
         LOCK,
     },
@@ -16,7 +15,7 @@ use crate::{
         DEFAULT_MAX_DOCUMENT_LENGTH_BYTES,
     },
 };
-use std::{iter, time::Duration};
+use std::{iter, time::Duration, collections::HashMap};
 
 #[test]
 fn tracing_truncation() {
@@ -56,10 +55,6 @@ fn tracing_truncation() {
     assert_eq!(s, two_emoji);
 }
 
-fn debug_commands_filter(event: &TracingEvent) -> bool {
-    event.target == COMMAND_TRACING_EVENT_TARGET && event.level >= tracing::Level::DEBUG
-}
-
 /// Prose test 1: Default truncation limit
 #[cfg_attr(feature = "tokio-runtime", tokio::test)]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
@@ -68,7 +63,8 @@ async fn command_logging_truncation_default_limit() {
     let client = TestClient::new().await;
     let coll = client.init_db_and_coll("tracing_test", "truncation").await;
 
-    let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER.subscribe(debug_commands_filter);
+    let _levels_guard = DEFAULT_GLOBAL_TRACING_HANDLER.set_levels(HashMap::from([(COMMAND_TRACING_EVENT_TARGET.to_string(), tracing::Level::DEBUG)]));
+    let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER.subscribe();
 
     let docs = iter::repeat(doc! { "x": "y" }).take(100);
     coll.insert_many(docs, None)
@@ -110,7 +106,8 @@ async fn command_logging_truncation_explicit_limit() {
         .build();
     let client = TestClient::with_options(Some(client_opts)).await;
 
-    let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER.subscribe(debug_commands_filter);
+    let _levels_guard = DEFAULT_GLOBAL_TRACING_HANDLER.set_levels(HashMap::from([(COMMAND_TRACING_EVENT_TARGET.to_string(), tracing::Level::DEBUG)]));
+    let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER.subscribe();
 
     client
         .database("tracing_test")
@@ -147,7 +144,8 @@ async fn command_logging_truncation_mid_codepoint_reply() {
     let client = TestClient::with_options(Some(client_opts)).await;
     let coll = client.init_db_and_coll("tracing_test", "truncation").await;
 
-    let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER.subscribe(debug_commands_filter);
+    let _levels_guard = DEFAULT_GLOBAL_TRACING_HANDLER.set_levels(HashMap::from([(COMMAND_TRACING_EVENT_TARGET.to_string(), tracing::Level::DEBUG)]));
+    let mut tracing_subscriber = DEFAULT_GLOBAL_TRACING_HANDLER.subscribe();
 
     let docs = iter::repeat(doc! { "🤔": "🤔🤔🤔🤔🤔🤔" }).take(10);
     coll.insert_many(docs, None)
@@ -194,13 +192,13 @@ async fn command_logging_unified() {
     .await;
 }
 
-// #[cfg_attr(feature = "tokio-runtime", tokio::test(flavor = "multi_thread"))]
-// #[cfg_attr(feature = "async-std-runtime", async_std::test)]
-// async fn connection_logging_unified() {
-//     let _guard = LOCK.run_exclusively().await;
-//     run_spec_test_with_path(
-//         &["connection-monitoring-and-pooling", "unified"],
-//         run_unified_format_test,
-//     )
-//     .await;
-// }
+#[cfg_attr(feature = "tokio-runtime", tokio::test(flavor = "multi_thread"))]
+#[cfg_attr(feature = "async-std-runtime", async_std::test)]
+async fn connection_logging_unified() {
+    let _guard = LOCK.run_exclusively().await;
+    run_spec_test_with_path(
+        &["connection-monitoring-and-pooling", "unified"],
+        run_unified_format_test,
+    )
+    .await;
+}

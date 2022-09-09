@@ -1,6 +1,6 @@
 {
   "description": "redacted-commands",
-  "schemaVersion": "1.10",
+  "schemaVersion": "1.11",
   "runOnRequirements": [
     {
       "minServerVersion": "5.0",
@@ -62,6 +62,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "authenticate"
@@ -107,6 +108,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "saslStart"
@@ -152,6 +154,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "saslContinue"
@@ -238,6 +241,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "createUser"
@@ -283,6 +287,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "updateUser"
@@ -326,6 +331,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "copydbgetnonce"
@@ -369,6 +375,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "copydbsaslstart"
@@ -412,6 +419,7 @@
             {
               "level": "debug",
               "component": "command",
+              "hasFailure": false,
               "data": {
                 "message": "Command failed",
                 "commandName": "copydb"

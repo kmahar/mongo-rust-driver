@@ -110,6 +110,10 @@ impl Error {
         .into()
     }
 
+    pub(crate) fn redacted() -> Error {
+        ErrorKind::Redacted.into()
+    }
+
     pub(crate) fn is_state_change_error(&self) -> bool {
         self.is_recovering() || self.is_notwritableprimary()
     }
@@ -495,6 +499,10 @@ pub enum ErrorKind {
     #[cfg(feature = "csfle")]
     #[error("An error occurred during client-side encryption: {0}")]
     Csfle(mongocrypt::error::Error),
+
+    /// An error occurred that has been redacted for security purposes.
+    #[error("REDACTED")]
+    Redacted,
 }
 
 impl ErrorKind {

@@ -64,6 +64,26 @@ pub(crate) fn tracing_events_match(
         ));
     }
 
+    if let Some(has_failure) = expected.has_failure {
+        match has_failure {
+            true => {
+                if !actual.fields.contains_key("failure") {
+                    return Err(format!(
+                        "Expected event to contain a failure, but did not find one"
+                    ));                
+                }
+            },
+            false => {
+                if actual.fields.contains_key("failure") {
+                    return Err(format!(
+                        "Expected event to not contain a failure, but found failure: {:?}",
+                        &actual.fields.get("failure").unwrap(),
+                    ));
+                }
+            }
+        };
+    }
+
     let serialized_fields = bson::to_document(&actual.fields)
         .map_err(|e| format!("Failed to serialize tracing fields to document: {}", e))?;
     let mut actual_fields = bson::Document::new();
