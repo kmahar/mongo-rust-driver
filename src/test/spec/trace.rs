@@ -7,7 +7,7 @@ use crate::{
         spec::run_unified_format_test,
         TestClient,
         DEFAULT_GLOBAL_TRACING_HANDLER,
-        LOCK,
+        LOCK, CLIENT_OPTIONS,
     },
     trace::{
         truncate_on_char_boundary,
@@ -101,9 +101,8 @@ async fn command_logging_truncation_default_limit() {
 async fn command_logging_truncation_explicit_limit() {
     let _guard = LOCK.run_exclusively().await;
 
-    let client_opts = ClientOptions::builder()
-        .tracing_max_document_length_bytes(5)
-        .build();
+    let mut client_opts = CLIENT_OPTIONS.get().await.clone();
+    client_opts.tracing_max_document_length_bytes = Some(5);
     let client = TestClient::with_options(Some(client_opts)).await;
 
     let _levels_guard = DEFAULT_GLOBAL_TRACING_HANDLER.set_levels(HashMap::from([(COMMAND_TRACING_EVENT_TARGET.to_string(), tracing::Level::DEBUG)]));
@@ -135,13 +134,18 @@ async fn command_logging_truncation_explicit_limit() {
 /// Prose test 3: mid-codepoint truncation
 #[cfg_attr(feature = "tokio-runtime", tokio::test)]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
-async fn command_logging_truncation_mid_codepoint_reply() {
+async fn command_logging_truncation_mid_codepoint() {
     let _guard = LOCK.run_exclusively().await;
 
-    let client_opts = ClientOptions::builder()
-        .tracing_max_document_length_bytes(215)
-        .build();
+    let mut client_opts = CLIENT_OPTIONS.get().await.clone();
+    client_opts.tracing_max_document_length_bytes = Some(215);
     let client = TestClient::with_options(Some(client_opts)).await;
+    // On non-standalone topologies the command includes a clusterTime and so gets truncated differently.
+    if !client.is_standalone() {
+        crate::test::log_uncaptured("Skipping test due to incompatible topology type");
+        return;
+    }
+
     let coll = client.init_db_and_coll("tracing_test", "truncation").await;
 
     let _levels_guard = DEFAULT_GLOBAL_TRACING_HANDLER.set_levels(HashMap::from([(COMMAND_TRACING_EVENT_TARGET.to_string(), tracing::Level::DEBUG)]));
@@ -160,6 +164,7 @@ async fn command_logging_truncation_mid_codepoint_reply() {
         .unwrap();
 
     let command = started.get_value_as_string("command");
+
     // 215 falls in the middle of an emoji (each is 4 bytes), so we should round up to 218.
     assert_eq!(command.len(), 218);
 
@@ -192,13 +197,13 @@ async fn command_logging_unified() {
     .await;
 }
 
-#[cfg_attr(feature = "tokio-runtime", tokio::test(flavor = "multi_thread"))]
-#[cfg_attr(feature = "async-std-runtime", async_std::test)]
-async fn connection_logging_unified() {
-    let _guard = LOCK.run_exclusively().await;
-    run_spec_test_with_path(
-        &["connection-monitoring-and-pooling", "unified"],
-        run_unified_format_test,
-    )
-    .await;
-}
+// #[cfg_attr(feature = "tokio-runtime", tokio::test(flavor = "multi_thread"))]
+// #[cfg_attr(feature = "async-std-runtime", async_std::test)]
+// async fn connection_logging_unified() {
+//     let _guard = LOCK.run_exclusively().await;
+//     run_spec_test_with_path(
+//         &["connection-monitoring-and-pooling", "unified"],
+//         run_unified_format_test,
+//     )
+//     .await;
+// }
