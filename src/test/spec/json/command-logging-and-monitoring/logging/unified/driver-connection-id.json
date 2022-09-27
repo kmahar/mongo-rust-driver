@@ -1,5 +1,5 @@
 {
-  "description": "command-logging",
+  "description": "driver-connection-id",
   "schemaVersion": "1.11",
   "createEntities": [
     {
@@ -63,25 +63,9 @@
                 "message": "Command started",
                 "databaseName": "logging-tests",
                 "commandName": "ping",
-                "command": {
-                  "$$matchAsDocument": {
-                    "$$matchAsRoot": {
-                      "ping": 1,
-                      "$db": "logging-tests"
-                    }
-                  }
-                },
-                "requestId": {
+                "driverConnectionId": {
                   "$$type": [
-                    "int",
-                    "long"
-                  ]
-                },
-                "serverHost": {
-                  "$$type": "string"
-                },
-                "serverPort": {
-                  "$$type": [
+                    "double",
                     "int",
                     "long"
                   ]
@@ -94,25 +78,7 @@
               "data": {
                 "message": "Command succeeded",
                 "commandName": "ping",
-                "reply": {
-                  "$$type": "string"
-                },
-                "requestId": {
-                  "$$type": [
-                    "int",
-                    "long"
-                  ]
-                },
-                "serverHost": {
-                  "$$type": "string"
-                },
-                "serverPort": {
-                  "$$type": [
-                    "int",
-                    "long"
-                  ]
-                },
-                "durationMS": {
+                "driverConnectionId": {
                   "$$type": [
                     "double",
                     "int",
@@ -152,19 +118,7 @@
                 "message": "Command started",
                 "databaseName": "logging-tests",
                 "commandName": "find",
-                "command": {
-                  "$$type": "string"
-                },
-                "requestId": {
-                  "$$type": [
-                    "int",
-                    "long"
-                  ]
-                },
-                "serverHost": {
-                  "$$type": "string"
-                },
-                "serverPort": {
+                "driverConnectionId": {
                   "$$type": [
                     "int",
                     "long"
@@ -178,27 +132,8 @@
               "data": {
                 "message": "Command failed",
                 "commandName": "find",
-                "failure": {
-                  "$$exists": true
-                },
-                "requestId": {
+                "driverConnectionId": {
                   "$$type": [
-                    "int",
-                    "long"
-                  ]
-                },
-                "serverHost": {
-                  "$$type": "string"
-                },
-                "serverPort": {
-                  "$$type": [
-                    "int",
-                    "long"
-                  ]
-                },
-                "durationMS": {
-                  "$$type": [
-                    "double",
                     "int",
                     "long"
                   ]

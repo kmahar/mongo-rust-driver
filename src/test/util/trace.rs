@@ -3,11 +3,9 @@ use crate::{
     test::spec::unified_runner::{TestFile, TestFileEntity},
 };
 use serde::Serialize;
-use std::{collections::HashMap, time::Duration, sync::{Arc, RwLock}};
+use std::{collections::HashMap, time::Duration, sync::{Arc, RwLock}, convert::TryInto};
 use tokio::sync::broadcast;
 use tracing::{field::Field, span, Level, Metadata};
-
-use super::log_uncaptured;
 
 /// Models the data reported in a tracing event.
 #[derive(Debug, Clone)]
@@ -47,14 +45,41 @@ impl TracingEvent {
 }
 
 /// Models the value of a field in a tracing event.
-#[derive(Debug, Clone, Serialize)]
-#[serde(untagged)]
+#[derive(Debug, Clone)]
 pub enum TracingEventValue {
     F64(f64),
     I64(i64),
     U64(u64),
+    I128(i128),
+    U128(u128),
     Bool(bool),
     String(String),
+}
+
+impl Serialize for TracingEventValue {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer {
+        match self {
+            TracingEventValue::F64(v) => serializer.serialize_f64(*v),
+            TracingEventValue::I64(v) => serializer.serialize_i64(*v),
+            TracingEventValue::U64(v) => serializer.serialize_u64(*v),
+            TracingEventValue::I128(v) => {
+                match (*v).try_into() {
+                    Ok(i) => serializer.serialize_i64(i),
+                    Err(e) => return Err(serde::ser::Error::custom(format!("Failed to serialize i128 as i64: {}", e))),
+                }
+            },
+            TracingEventValue::U128(v) => {
+                match (*v).try_into() {
+                    Ok(i) => serializer.serialize_u64(i),
+                    Err(e) => return Err(serde::ser::Error::custom(format!("Failed to serialize u128 as u64: {}", e))),
+                }
+            },
+            TracingEventValue::Bool(v) => serializer.serialize_bool(*v),
+            TracingEventValue::String(v) => serializer.serialize_str(v.as_str()),
+        }
+    }
 }
 
 /// A type for use in tests that need to consume tracing events. To use this type, initialize
@@ -258,6 +283,18 @@ impl tracing::field::Visit for TracingEventVisitor<'_> {
         self.event
             .fields
             .insert(field.name().to_string(), TracingEventValue::U64(value));
+    }
+
+    fn record_i128(&mut self, field: &Field, value: i128) {
+        self.event
+            .fields
+            .insert(field.name().to_string(), TracingEventValue::I128(value));
+    }
+
+    fn record_u128(&mut self, field: &Field, value: u128) {
+        self.event
+            .fields
+            .insert(field.name().to_string(), TracingEventValue::U128(value));
     }
 
     fn record_bool(&mut self, field: &Field, value: bool) {

@@ -1938,9 +1938,13 @@ buildvariants:
   matrix_spec:
     os: "*"
     async-runtime: "*"
-  display_name: "Tracing tests on ${os} with ${async-runtime}"
+    auth-and-tls:
+     - "auth-and-tls"
+     - "noauth-and-notls"
+  display_name: "Tracing tests on ${os} with ${auth-and-tls} and ${async-runtime}"
   tasks:
     - ".tracing"
+# todo: remove LB tasks on windows and ubuntu ARM
 
 -
   name: "lint"

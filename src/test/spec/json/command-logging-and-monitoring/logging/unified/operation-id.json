@@ -43,7 +43,7 @@
       "operations": [
         {
           "name": "bulkWrite",
-          "object": "logging-tests-collection",
+          "object": "collection",
           "arguments": {
             "requests": [
               {
@@ -76,7 +76,10 @@
                 "databaseName": "logging-tests",
                 "commandName": "insert",
                 "operationId": {
-                  "$$exists": true
+                  "$$type": [
+                    "int",
+                    "long"
+                  ]
                 }
               }
             },
@@ -87,7 +90,10 @@
                 "message": "Command succeeded",
                 "commandName": "insert",
                 "operationId": {
-                  "$$exists": true
+                  "$$type": [
+                    "int",
+                    "long"
+                  ]
                 }
               }
             },
@@ -99,7 +105,10 @@
                 "databaseName": "logging-tests",
                 "commandName": "delete",
                 "operationId": {
-                  "$$exists": true
+                  "$$type": [
+                    "int",
+                    "long"
+                  ]
                 }
               }
             },
@@ -110,7 +119,10 @@
                 "message": "Command succeeded",
                 "commandName": "delete",
                 "operationId": {
-                  "$$exists": true
+                  "$$type": [
+                    "int",
+                    "long"
+                  ]
                 }
               }
             }
@@ -123,7 +135,7 @@
       "operations": [
         {
           "name": "bulkWrite",
-          "object": "logging-tests-collection",
+          "object": "collection",
           "arguments": {
             "requests": [
               {
@@ -157,7 +169,10 @@
                 "databaseName": "logging-tests",
                 "commandName": "update",
                 "operationId": {
-                  "$$exists": true
+                  "$$type": [
+                    "int",
+                    "long"
+                  ]
                 }
               }
             },
@@ -168,7 +183,10 @@
                 "message": "Command failed",
                 "commandName": "update",
                 "operationId": {
-                  "$$exists": true
+                  "$$type": [
+                    "int",
+                    "long"
+                  ]
                 }
               }
             }

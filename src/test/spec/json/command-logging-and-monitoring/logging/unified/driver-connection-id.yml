@@ -1,4 +1,5 @@
-description: "command-logging"
+# This is a separate test so that drivers that do not implement CMAP can easily skip it.
+description: "driver-connection-id"
 
 schemaVersion: "1.11"
 
@@ -39,25 +40,14 @@ tests:
               message: "Command started"
               databaseName: *databaseName
               commandName: *commandName
-              command:
-                $$matchAsDocument:
-                  $$matchAsRoot:
-                    ping: 1
-                    $db: *databaseName
-              requestId: { $$type: [int, long] }
-              serverHost: { $$type: string }
-              serverPort: { $$type: [int, long] }
+              driverConnectionId: { $$type: [double, int, long] }
 
           - level: debug
             component: command
             data:
               message: "Command succeeded"
               commandName: *commandName
-              reply: { $$type: string }
-              requestId: { $$type: [int, long] }
-              serverHost: { $$type: string }
-              serverPort: { $$type: [int, long] }
-              durationMS: { $$type: [double, int, long] }
+              driverConnectionId: { $$type: [double, int, long] }
         
   - description: "A failed command"
     operations:
@@ -76,19 +66,11 @@ tests:
               message: "Command started"
               databaseName: *databaseName
               commandName: *commandName
-              command: { $$type: string }
-              requestId:  { $$type: [int, long] }
-              serverHost: { $$type: string }
-              serverPort: { $$type: [int, long] }
+              driverConnectionId: { $$type: [int, long] }
 
           - level: debug
             component: command
             data:
               message: "Command failed"
               commandName: *commandName
-              failure: { $$exists: true }
-              requestId:  { $$type: [int, long] }
-              serverHost: { $$type: string }
-              serverPort: { $$type: [int, long] }
-              durationMS: { $$type: [double, int, long] }
-
+              driverConnectionId: { $$type: [int, long] }
