@@ -1,4 +1,4 @@
-use bson::{oid::ObjectId, Bson};
+use bson::oid::ObjectId;
 
 use crate::{
     event::command::{
@@ -7,7 +7,7 @@ use crate::{
         CommandStartedEvent,
         CommandSucceededEvent,
     },
-    trace::{TracingRepresentation, COMMAND_TRACING_EVENT_TARGET, serialize_command_or_reply},
+    trace::{serialize_command_or_reply, TracingRepresentation, COMMAND_TRACING_EVENT_TARGET},
 };
 
 use super::DEFAULT_MAX_DOCUMENT_LENGTH_BYTES;

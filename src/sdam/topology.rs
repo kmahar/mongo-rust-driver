@@ -43,6 +43,9 @@ use crate::{
     TopologyType,
 };
 
+#[cfg(feature = "tracing-unstable")]
+use crate::trace::topology::TopologyTracingEventEmitter;
+
 use super::{
     monitor::{MonitorManager, MonitorRequestReceiver},
     srv_polling::SrvPollingMonitor,
@@ -68,22 +71,38 @@ pub(crate) struct Topology {
 impl Topology {
     pub(crate) fn new(options: ClientOptions) -> Result<Topology> {
         let description = TopologyDescription::default();
+        let id = ObjectId::new();
 
-        let event_emitter = options.sdam_event_handler.as_ref().map(|handler| {
-            let (tx, mut rx) = mpsc::unbounded_channel::<AcknowledgedMessage<SdamEvent>>();
+        let event_emitter =
+            if options.sdam_event_handler.is_some() || cfg!(feature = "tracing-unstable") {
+                let user_handler = options.sdam_event_handler.clone();
 
-            // Spin up a task to handle events so that a user's event handling code can't block the
-            // TopologyWorker.
-            let handler = handler.clone();
-            runtime::execute(async move {
-                while let Some(event) = rx.recv().await {
-                    let (event, ack) = event.into_parts();
-                    handle_sdam_event(handler.as_ref(), event);
-                    ack.acknowledge(());
-                }
-            });
-            SdamEventEmitter { sender: tx }
-        });
+                #[cfg(feature = "tracing-unstable")]
+                let tracing_emitter =
+                    TopologyTracingEventEmitter::new(options.tracing_max_document_length_bytes, id);
+                let (tx, mut rx) = mpsc::unbounded_channel::<AcknowledgedMessage<SdamEvent>>();
+                // Spin up a task to handle events so that a user's event handling code can't block
+                // the TopologyWorker.
+                runtime::execute(async move {
+                    while let Some(event) = rx.recv().await {
+                        let (event, ack) = event.into_parts();
+
+                        if let Some(ref user_handler) = user_handler {
+                            #[cfg(feature = "tracing-unstable")]
+                            handle_sdam_event(user_handler.as_ref(), event.clone());
+                            #[cfg(not(feature = "tracing-unstable"))]
+                            handle_sdam_event(user_handler.as_ref(), event);
+                        }
+                        #[cfg(feature = "tracing-unstable")]
+                        handle_sdam_event(&tracing_emitter, event);
+
+                        ack.acknowledge(());
+                    }
+                });
+                Some(SdamEventEmitter { sender: tx })
+            } else {
+                None
+            };
 
         let (updater, update_receiver) = TopologyUpdater::channel();
         let (worker_handle, handle_listener) = WorkerHandleListener::channel();
@@ -97,8 +116,6 @@ impl Topology {
             HttpClient::default(),
             EstablisherOptions::from_client_options(&options),
         )?;
-
-        let id = ObjectId::new();
 
         let worker = TopologyWorker {
             id,

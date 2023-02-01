@@ -3,6 +3,7 @@ use std::{sync::Arc, time::Duration};
 use bson::{doc, Document};
 use tokio::sync::{RwLockReadGuard, RwLockWriteGuard};
 
+#[cfg(feature = "tracing-unstable")]
 use super::{run_spec_test_with_path, run_unified_format_test_filtered};
 use crate::{
     hello::LEGACY_HELLO_COMMAND_NAME,
@@ -22,6 +23,7 @@ use crate::{
     Client,
 };
 
+#[cfg(feature = "tracing-unstable")]
 #[cfg_attr(feature = "tokio-runtime", tokio::test(flavor = "multi_thread"))]
 #[cfg_attr(feature = "async-std-runtime", async_std::test)]
 async fn run_unified() {
