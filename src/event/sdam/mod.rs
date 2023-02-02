@@ -121,6 +121,18 @@ pub struct ServerHeartbeatStartedEvent {
 
     /// Determines if this heartbeat event is from an awaitable `hello`.
     pub awaited: bool,
+
+    /// The driver-generated ID for the connection used for the heartbeat.
+    /// TODO: this should be non-optional, but I made it optional for now because
+    /// it requires some refactoring to have access to the connection's ID prior
+    /// to the initial ``hello`` being sent to handshake the connection.
+    pub driver_connection_id: Option<u32>,
+
+    /// The server-generated ID for the connection used for the heartbeat.
+    /// Optional; only present for server versions 4.2+.
+    /// This value will be None if is the first heartbeat on a new monitoring
+    /// connection since the server connection ID is obtained via heartbeat responses.
+    pub server_connection_id: Option<i32>,
 }
 
 /// Published when a server monitor's `hello` or legacy hello command succeeds.
@@ -139,6 +151,15 @@ pub struct ServerHeartbeatSucceededEvent {
 
     /// Determines if this heartbeat event is from an awaitable `hello`.
     pub awaited: bool,
+
+    /// The driver-generated ID for the connection used for the heartbeat.
+    /// TODO: Similarly to above, this should be non-optional, but will require some
+    /// refactoring to expose so that we record the ID that was used for the heartbeat as we do it.
+    pub driver_connection_id: Option<u32>,
+
+    /// The server-generated ID for the connection used for the heartbeat.
+    /// Optional; only present for server versions 4.2+.
+    pub server_connection_id: Option<i32>,
 }
 
 /// Published when a server monitor's `hello` or legacy hello command fails.
@@ -158,6 +179,20 @@ pub struct ServerHeartbeatFailedEvent {
 
     /// Determines if this heartbeat event is from an awaitable `hello`.
     pub awaited: bool,
+
+    /// The driver-generated ID for the connection used for the heartbeat.
+    /// TODO: Similarly to above, this should be non-optional, but will require some
+    /// refactoring to expose so that we record the ID that was used for the heartbeat as we do it.
+    pub driver_connection_id: Option<u32>,
+
+    /// The server-generated ID for the connection used for the heartbeat.
+    /// Optional; only present for server versions 4.2+.
+    /// This value will be None if is the first heartbeat on a new monitoring
+    /// connection since the server connection ID is obtained via heartbeat responses.
+    /// TODO: it might be possible that we could get an ok:0 back that did include a connection ID
+    /// but it seems unlikely. may be worth confirming though. we will definitely not have this
+    /// value if the heartbeat fails with a network error though
+    pub server_connection_id: Option<i32>,
 }
 
 #[derive(Clone, Debug)]

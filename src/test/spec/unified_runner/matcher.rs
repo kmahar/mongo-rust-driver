@@ -446,7 +446,16 @@ fn special_operator_matches(
 ) -> Result<(), String> {
     match key.as_ref() {
         "$$exists" => match_eq(&value.as_bool().unwrap(), &actual.is_some()),
-        "$$type" => type_matches(value, actual.unwrap()),
+        "$$type" => {
+            if let Some(actual) = actual {
+                type_matches(value, actual)
+            } else {
+                Err(format!(
+                    "Expected value to have type {:?} but got None",
+                    value
+                ))
+            }
+        },
         "$$unsetOrMatches" => {
             if actual.is_some() {
                 results_match_inner(actual, value, false, false, entities)

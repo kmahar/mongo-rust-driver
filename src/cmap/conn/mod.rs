@@ -58,7 +58,7 @@ pub struct ConnectionInfo {
 #[derivative(Debug)]
 pub(crate) struct Connection {
     /// Driver-generated ID for the connection.
-    pub(super) id: u32,
+    pub(crate) id: u32,
     /// Server-generated ID for the connection.
     pub(crate) server_id: Option<i32>,
 

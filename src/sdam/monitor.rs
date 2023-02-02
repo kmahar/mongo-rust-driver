@@ -166,6 +166,8 @@ impl Monitor {
             SdamEvent::ServerHeartbeatStarted(ServerHeartbeatStartedEvent {
                 server_address: self.address.clone(),
                 awaited: self.topology_version.is_some(),
+                driver_connection_id: self.connection.as_ref().and_then(|c| Some(c.id)),
+                server_connection_id: self.connection.as_ref().and_then(|c| c.server_id),
             })
         });
 
@@ -264,6 +266,8 @@ impl Monitor {
                         reply,
                         server_address: self.address.clone(),
                         awaited: self.topology_version.is_some(),
+                        driver_connection_id: self.connection.as_ref().and_then(|c| Some(c.id)),
+                        server_connection_id: self.connection.as_ref().and_then(|c| c.server_id),
                     })
                 });
 
@@ -274,16 +278,19 @@ impl Monitor {
             HelloResult::Err(ref e) | HelloResult::Cancelled { reason: ref e } => {
                 // Per the spec, cancelled requests and errors both require the monitoring
                 // connection to be closed.
-                self.connection = None;
-                self.rtt_monitor_handle.reset_average_rtt();
+                
                 self.emit_event(|| {
                     SdamEvent::ServerHeartbeatFailed(ServerHeartbeatFailedEvent {
                         duration,
                         failure: e.clone(),
                         server_address: self.address.clone(),
                         awaited: self.topology_version.is_some(),
+                        driver_connection_id: self.connection.as_ref().and_then(|c| Some(c.id)),
+                        server_connection_id: self.connection.as_ref().and_then(|c| c.server_id),
                     })
                 });
+                self.connection = None;
+                self.rtt_monitor_handle.reset_average_rtt();
                 self.topology_version.take();
             }
         }

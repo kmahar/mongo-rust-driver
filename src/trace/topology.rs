@@ -139,6 +139,8 @@ impl SdamEventHandler for TopologyTracingEventEmitter {
                 topologyId = self.topology_id.tracing_representation(),
                 serverHost = event.server_address.host(),
                 serverPort = event.server_address.port_tracing_representation(),
+                driverConnectionId = event.driver_connection_id,
+                serverConnectionId = event.server_connection_id,
                 awaited = event.awaited,
                 "Server heartbeat started"
             )
@@ -155,6 +157,8 @@ impl SdamEventHandler for TopologyTracingEventEmitter {
                 topologyId = self.topology_id.tracing_representation(),
                 serverHost = event.server_address.host(),
                 serverPort = event.server_address.port_tracing_representation(),
+                driverConnectionId = event.driver_connection_id,
+                serverConnectionId = event.server_connection_id,
                 awaited = event.awaited,
                 reply = serialize_command_or_reply(event.reply, self.max_document_length_bytes),
                 durationMS = event.duration.as_millis(),
@@ -173,6 +177,8 @@ impl SdamEventHandler for TopologyTracingEventEmitter {
                 topologyId = self.topology_id.tracing_representation(),
                 serverHost = event.server_address.host(),
                 serverPort = event.server_address.port_tracing_representation(),
+                driverConnectionId = event.driver_connection_id,
+                serverConnectionId = event.server_connection_id,
                 awaited = event.awaited,
                 failure = event.failure.tracing_representation(),
                 durationMS = event.duration.as_millis(),

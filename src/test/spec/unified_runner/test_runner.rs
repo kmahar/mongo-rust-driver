@@ -295,7 +295,9 @@ impl TestRunner {
                     assert_eq!(
                         client_actual_events.len(),
                         expected_events.len(),
-                        "Actual tracing event count should match expected"
+                        "Actual tracing event count should match expected. Expected events = {:#?}, actual events = {:#?}",
+                        expected_events,
+                        client_actual_events,
                     );
 
                     for (actual, expected) in client_actual_events.iter().zip(expected_events) {
